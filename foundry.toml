@@ -1,0 +1,10 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib", "dependencies"]
+
+[dependencies]
+forge-std = "1.11.0"
+kam = { version = "1.0", git = "https://github.com/turingcapitalgroup/kam.git", rev = "cd16847b148561c4529e85790035648fc4d38e2a" }
+
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
