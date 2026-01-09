@@ -3,10 +3,12 @@ pragma solidity 0.8.30;
 
 /// @title IKamPaymaster
 /// @notice Interface for the KamPaymaster gasless forwarder contract
-/// @dev Enables gasless interactions with kStakingVaults using permit signatures, ERC2771 meta-transactions,
-/// and Chainlink oracle price feeds for accurate fee calculation in token terms
+/// @dev Enables gasless interactions with kStakingVaults using permit signatures and ERC2771 meta-transactions.
+/// Fees are passed directly by the trusted executor for simplicity and gas efficiency.
+/// Users sign a maxFee parameter to cap the fee that can be charged.
+/// Structs are tightly packed for gas optimization.
 interface IKamPaymaster {
-    /* //////////////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
@@ -44,11 +46,6 @@ interface IKamPaymaster {
     /// @param fee The fee deducted in kTokens
     event GaslessUnstakedAssetsClaimed(address indexed user, address indexed vault, bytes32 requestId, uint256 fee);
 
-    /// @notice Emitted when fee configuration is updated
-    /// @param baseFee New base fee in basis points
-    /// @param gasMultiplier New gas cost multiplier
-    event FeeConfigUpdated(uint256 baseFee, uint256 gasMultiplier);
-
     /// @notice Emitted when a trusted executor is updated
     /// @param executor The executor address
     /// @param isTrusted Whether the executor is trusted
@@ -58,12 +55,7 @@ interface IKamPaymaster {
     /// @param treasury The new treasury address
     event TreasuryUpdated(address indexed treasury);
 
-    /// @notice Emitted when a price feed is set for an asset
-    /// @param asset The underlying asset address
-    /// @param priceFeed The Chainlink price feed address (asset/ETH)
-    event PriceFeedSet(address indexed asset, address indexed priceFeed);
-
-    /* //////////////////////////////////////////////////////////////
+    /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
 
@@ -94,128 +86,271 @@ interface IKamPaymaster {
     /// @notice Thrown when the permit deadline has expired
     error PermitExpired();
 
-    /// @notice Thrown when fee exceeds maximum allowed percentage
-    error FeeExceedsMaximum();
+    /// @notice Thrown when fee exceeds user's signed maxFee
+    error FeeExceedsMax();
 
-    /// @notice Thrown when the price feed returns stale or invalid data
-    error InvalidPriceFeed();
+    /// @notice Thrown when stake request to vault fails
+    error StakeRequestFailed();
 
-    /// @notice Thrown when no price feed is configured for an asset
-    error NoPriceFeedConfigured();
+    /// @notice Thrown when unstake request to vault fails
+    error UnstakeRequestFailed();
 
-    /* //////////////////////////////////////////////////////////////
+    /// @notice Thrown when claim staked shares fails
+    error ClaimStakedSharesFailed();
+
+    /// @notice Thrown when claim unstaked assets fails
+    error ClaimUnstakedAssetsFailed();
+
+    /// @notice Thrown when permit call fails
+    error PermitFailed();
+
+    /// @notice Thrown when array lengths mismatch in batch operations
+    error ArrayLengthMismatch();
+
+    /*//////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Request structure for gasless stake operations
+    /// @notice Request structure for gasless stake operations (packed for gas efficiency)
+    /// @dev Fits in 3 storage slots: slot1(user+nonce), slot2(vault+deadline+maxFee), slot3(recipient+amount)
     /// @param user The address of the user initiating the stake
+    /// @param nonce The user's current nonce (uint48 supports up to 281 trillion operations)
     /// @param vault The kStakingVault address
-    /// @param kTokenAmount The gross amount of kTokens (including fee)
+    /// @param deadline The expiration timestamp (uint48 supports dates until year 8.9 million)
+    /// @param maxFee The maximum fee the user agrees to pay (uint48 supports up to 281T with 6 decimals)
     /// @param recipient The address to receive stkTokens
-    /// @param deadline The expiration timestamp for this request
-    /// @param nonce The user's current nonce
+    /// @param kTokenAmount The gross amount of kTokens including fee (uint96 supports up to 79B with 18 decimals)
     struct StakeRequest {
-        address user;
-        address vault;
-        uint256 kTokenAmount;
-        address recipient;
-        uint256 deadline;
-        uint256 nonce;
+        address user; // 20 bytes
+        uint48 nonce; // 6 bytes
+        uint48 deadline; // 6 bytes
+        address vault; // 20 bytes
+        uint48 maxFee; // 6 bytes
+        uint48 kTokenAmount; // 6 bytes
+        address recipient; // 20 bytes
     }
 
-    /// @notice Request structure for gasless unstake operations
+    /// @notice Request structure for gasless unstake operations (packed for gas efficiency)
     /// @param user The address of the user initiating the unstake
+    /// @param nonce The user's current nonce
+    /// @param deadline The expiration timestamp
     /// @param vault The kStakingVault address
-    /// @param stkTokenAmount The gross amount of stkTokens (including fee)
+    /// @param maxFee The maximum fee the user agrees to pay
+    /// @param stkTokenAmount The gross amount of stkTokens including fee
     /// @param recipient The address to receive kTokens
-    /// @param deadline The expiration timestamp for this request
-    /// @param nonce The user's current nonce
     struct UnstakeRequest {
-        address user;
-        address vault;
-        uint256 stkTokenAmount;
-        address recipient;
-        uint256 deadline;
-        uint256 nonce;
+        address user; // 20 bytes
+        uint48 nonce; // 6 bytes
+        uint48 deadline; // 6 bytes
+        address vault; // 20 bytes
+        uint48 maxFee; // 6 bytes
+        uint48 stkTokenAmount; // 6 bytes
+        address recipient; // 20 bytes
     }
 
-    /// @notice Request structure for gasless claim operations
+    /// @notice Request structure for gasless claim operations (packed for gas efficiency)
     /// @param user The address of the user claiming
-    /// @param vault The kStakingVault address
-    /// @param requestId The stake/unstake request ID to claim
-    /// @param deadline The expiration timestamp for this request
     /// @param nonce The user's current nonce
+    /// @param deadline The expiration timestamp
+    /// @param vault The kStakingVault address
+    /// @param maxFee The maximum fee the user agrees to pay
+    /// @param requestId The stake/unstake request ID to claim
     struct ClaimRequest {
-        address user;
-        address vault;
-        bytes32 requestId;
-        uint256 deadline;
-        uint256 nonce;
+        address user; // 20 bytes
+        uint48 nonce; // 6 bytes
+        uint48 deadline; // 6 bytes
+        address vault; // 20 bytes
+        uint48 maxFee; // 6 bytes
+        bytes32 requestId; // 32 bytes
     }
 
-    /// @notice Permit signature parameters for EIP-2612
+    /// @notice Permit signature parameters for EIP-2612 (packed)
     /// @param value The permit value (allowance amount)
     /// @param deadline The permit deadline
     /// @param v The recovery byte of the signature
     /// @param r Half of the ECDSA signature pair
     /// @param s Half of the ECDSA signature pair
     struct PermitSignature {
-        uint256 value;
-        uint256 deadline;
-        uint8 v;
-        bytes32 r;
-        bytes32 s;
+        uint48 value; // 6 bytes - matches token amount sizes
+        uint48 deadline; // 6 bytes
+        uint8 v; // 1 byte
+        bytes32 r; // 32 bytes
+        bytes32 s; // 32 bytes
     }
 
-    /* //////////////////////////////////////////////////////////////
-                            EXTERNAL FUNCTIONS
+    /*//////////////////////////////////////////////////////////////
+                    EXTERNAL FUNCTIONS (WITH PERMIT)
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Execute a gasless stake request with permit
-    /// @dev Combines permit + requestStake in a single meta-transaction
+    /// @dev Combines permits + requestStake in a single meta-transaction
     /// @param request The stake request parameters
-    /// @param permitSig The permit signature for kToken approval
+    /// @param permitForForwarder The permit signature for kToken approval to forwarder (for fee)
+    /// @param permitForVault The permit signature for kToken approval to vault (for staking)
     /// @param requestSig The signature for the meta-transaction
+    /// @param fee The fee amount in kTokens (must be <= request.maxFee)
     /// @return requestId The resulting stake request ID
-    function executeStakeWithPermit(
+    function executeRequestStakeWithPermit(
         StakeRequest calldata request,
-        PermitSignature calldata permitSig,
-        bytes calldata requestSig
-    ) external returns (bytes32 requestId);
+        PermitSignature calldata permitForForwarder,
+        PermitSignature calldata permitForVault,
+        bytes calldata requestSig,
+        uint48 fee
+    )
+        external
+        returns (bytes32 requestId);
 
     /// @notice Execute a gasless unstake request with permit
     /// @dev Combines permit + requestUnstake in a single meta-transaction
     /// @param request The unstake request parameters
     /// @param permitSig The permit signature for stkToken approval
     /// @param requestSig The signature for the meta-transaction
+    /// @param fee The fee amount in stkTokens (must be <= request.maxFee)
     /// @return requestId The resulting unstake request ID
-    function executeUnstakeWithPermit(
+    function executeRequestUnstakeWithPermit(
         UnstakeRequest calldata request,
         PermitSignature calldata permitSig,
-        bytes calldata requestSig
-    ) external returns (bytes32 requestId);
+        bytes calldata requestSig,
+        uint48 fee
+    )
+        external
+        returns (bytes32 requestId);
 
-    /// @notice Execute a gasless claim of staked shares with fee deduction
-    /// @dev Claims stkTokens and deducts fee in stkTokens (converted from kToken gas cost)
+    /// @notice Execute a gasless claim of staked shares with permit
+    /// @dev Combines permit + claimStakedShares in a single meta-transaction
     /// @param request The claim request parameters
-    /// @param permitSig The permit signature to allow fee deduction from received stkTokens
+    /// @param permitSig The permit signature for stkToken approval (for fee)
     /// @param requestSig The signature for the meta-transaction
-    function executeClaimStakedShares(
+    /// @param fee The fee amount in stkTokens (must be <= request.maxFee)
+    function executeClaimStakedSharesWithPermit(
         ClaimRequest calldata request,
         PermitSignature calldata permitSig,
-        bytes calldata requestSig
-    ) external;
+        bytes calldata requestSig,
+        uint48 fee
+    )
+        external;
 
-    /// @notice Execute a gasless claim of unstaked assets with fee deduction
-    /// @dev Claims kTokens and deducts fee in kTokens
+    /// @notice Execute a gasless claim of unstaked assets with permit
+    /// @dev Combines permit + claimUnstakedAssets in a single meta-transaction
     /// @param request The claim request parameters
-    /// @param permitSig The permit signature to allow fee deduction from received kTokens
+    /// @param permitSig The permit signature for kToken approval (for fee)
     /// @param requestSig The signature for the meta-transaction
-    function executeClaimUnstakedAssets(
+    /// @param fee The fee amount in kTokens (must be <= request.maxFee)
+    function executeClaimUnstakedAssetsWithPermit(
         ClaimRequest calldata request,
         PermitSignature calldata permitSig,
-        bytes calldata requestSig
-    ) external;
+        bytes calldata requestSig,
+        uint48 fee
+    )
+        external;
+
+    /*//////////////////////////////////////////////////////////////
+                  EXTERNAL FUNCTIONS (WITHOUT PERMIT)
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Execute a gasless stake request (assumes allowance already set)
+    /// @param request The stake request parameters
+    /// @param requestSig The signature for the meta-transaction
+    /// @param fee The fee amount in kTokens (must be <= request.maxFee)
+    /// @return requestId The resulting stake request ID
+    function executeRequestStake(
+        StakeRequest calldata request,
+        bytes calldata requestSig,
+        uint48 fee
+    )
+        external
+        returns (bytes32 requestId);
+
+    /// @notice Execute a gasless unstake request (assumes allowance already set)
+    /// @param request The unstake request parameters
+    /// @param requestSig The signature for the meta-transaction
+    /// @param fee The fee amount in stkTokens (must be <= request.maxFee)
+    /// @return requestId The resulting unstake request ID
+    function executeRequestUnstake(
+        UnstakeRequest calldata request,
+        bytes calldata requestSig,
+        uint48 fee
+    )
+        external
+        returns (bytes32 requestId);
+
+    /// @notice Execute a gasless claim of staked shares (assumes allowance already set for fee)
+    /// @param request The claim request parameters
+    /// @param requestSig The signature for the meta-transaction
+    /// @param fee The fee amount in stkTokens (must be <= request.maxFee)
+    function executeClaimStakedShares(ClaimRequest calldata request, bytes calldata requestSig, uint48 fee) external;
+
+    /// @notice Execute a gasless claim of unstaked assets (assumes allowance already set for fee)
+    /// @param request The claim request parameters
+    /// @param requestSig The signature for the meta-transaction
+    /// @param fee The fee amount in kTokens (must be <= request.maxFee)
+    function executeClaimUnstakedAssets(ClaimRequest calldata request, bytes calldata requestSig, uint48 fee) external;
+
+    /*//////////////////////////////////////////////////////////////
+                          BATCH FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Execute multiple gasless stake requests in a single transaction
+    /// @param requests Array of stake request parameters
+    /// @param permitsForForwarder Array of permit signatures for forwarder (for fees)
+    /// @param permitsForVault Array of permit signatures for vault (for staking)
+    /// @param requestSigs Array of signatures for the meta-transactions
+    /// @param fees Array of fee amounts
+    /// @return requestIds Array of resulting stake request IDs
+    function executeRequestStakeWithPermitBatch(
+        StakeRequest[] calldata requests,
+        PermitSignature[] calldata permitsForForwarder,
+        PermitSignature[] calldata permitsForVault,
+        bytes[] calldata requestSigs,
+        uint48[] calldata fees
+    )
+        external
+        returns (bytes32[] memory requestIds);
+
+    /// @notice Execute multiple gasless unstake requests in a single transaction
+    /// @param requests Array of unstake request parameters
+    /// @param permitSigs Array of permit signatures
+    /// @param requestSigs Array of signatures for the meta-transactions
+    /// @param fees Array of fee amounts
+    /// @return requestIds Array of resulting unstake request IDs
+    function executeRequestUnstakeWithPermitBatch(
+        UnstakeRequest[] calldata requests,
+        PermitSignature[] calldata permitSigs,
+        bytes[] calldata requestSigs,
+        uint48[] calldata fees
+    )
+        external
+        returns (bytes32[] memory requestIds);
+
+    /// @notice Execute multiple gasless stake requests without permits
+    /// @param requests Array of stake request parameters
+    /// @param requestSigs Array of signatures for the meta-transactions
+    /// @param fees Array of fee amounts
+    /// @return requestIds Array of resulting stake request IDs
+    function executeRequestStakeBatch(
+        StakeRequest[] calldata requests,
+        bytes[] calldata requestSigs,
+        uint48[] calldata fees
+    )
+        external
+        returns (bytes32[] memory requestIds);
+
+    /// @notice Execute multiple gasless unstake requests without permits
+    /// @param requests Array of unstake request parameters
+    /// @param requestSigs Array of signatures for the meta-transactions
+    /// @param fees Array of fee amounts
+    /// @return requestIds Array of resulting unstake request IDs
+    function executeRequestUnstakeBatch(
+        UnstakeRequest[] calldata requests,
+        bytes[] calldata requestSigs,
+        uint48[] calldata fees
+    )
+        external
+        returns (bytes32[] memory requestIds);
+
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Get the current nonce for a user
     /// @param user The user address
@@ -226,19 +361,6 @@ interface IKamPaymaster {
     /// @return The domain separator
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 
-    /// @notice Calculate the fee for a kToken using Chainlink oracle
-    /// @param gasEstimate The estimated gas cost
-    /// @param kToken The kToken address
-    /// @return fee The calculated fee in kToken units
-    function calculateFeeForKToken(uint256 gasEstimate, address kToken) external view returns (uint256 fee);
-
-    /// @notice Calculate the fee for stkTokens based on their underlying kToken value
-    /// @dev Uses vault's convertToAssets() to determine kToken equivalent
-    /// @param gasEstimate The estimated gas cost
-    /// @param vault The vault address (stkToken)
-    /// @return fee The calculated fee in stkToken units
-    function calculateFeeForStkToken(uint256 gasEstimate, address vault) external view returns (uint256 fee);
-
     /// @notice Check if an address is a trusted executor
     /// @param executor The address to check
     /// @return True if the executor is trusted
@@ -247,17 +369,4 @@ interface IKamPaymaster {
     /// @notice Get the treasury address
     /// @return The treasury address that receives fees
     function treasury() external view returns (address);
-
-    /// @notice Get the base fee in basis points
-    /// @return The base fee (10000 = 100%)
-    function baseFee() external view returns (uint256);
-
-    /// @notice Get the gas cost multiplier for fee calculations
-    /// @return The gas multiplier
-    function gasMultiplier() external view returns (uint256);
-
-    /// @notice Get the price feed address for an underlying asset
-    /// @param asset The underlying asset address (e.g., USDC, WBTC)
-    /// @return The Chainlink price feed address (asset/ETH)
-    function assetPriceFeeds(address asset) external view returns (address);
 }

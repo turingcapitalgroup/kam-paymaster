@@ -1,10 +1,31 @@
 [profile.default]
 src = "src"
+test = "test"
 out = "out"
 libs = ["lib", "dependencies"]
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+fs_permissions = [
+    { access = "read", path = "./dependencies/kam-1.0" },
+    { access = "read-write", path = "./deployments" }
+]
+
+[fmt]
+bracket_spacing = true
+int_types = "long"
+line_length = 120
+multiline_func_header = "all"
+number_underscore = "thousands"
+quote_style = "double"
+tab_width = 4
+sort_imports = true
+
+[soldeer]
+recursive_deps = true
 
 [dependencies]
 forge-std = "1.11.0"
-kam = { version = "1.0", git = "https://github.com/turingcapitalgroup/kam.git", rev = "cd16847b148561c4529e85790035648fc4d38e2a" }
+kam = { version = "1.0", git = "https://github.com/turingcapitalgroup/kam.git" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
