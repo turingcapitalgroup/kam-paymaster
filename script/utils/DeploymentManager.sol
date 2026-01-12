@@ -22,12 +22,17 @@ abstract contract DeploymentManager is Script {
         string network;
         uint256 chainId;
         RoleAddresses roles;
+        ExternalContracts contracts;
     }
 
     struct RoleAddresses {
         address owner;
         address treasury;
         address executor;
+    }
+
+    struct ExternalContracts {
+        address registry;
     }
 
     struct DeploymentOutput {
@@ -76,6 +81,9 @@ abstract contract DeploymentManager is Script {
         config.roles.owner = json.readAddress(".roles.owner");
         config.roles.treasury = json.readAddress(".roles.treasury");
         config.roles.executor = json.readAddress(".roles.executor");
+
+        // Parse external contract addresses
+        config.contracts.registry = json.readAddress(".contracts.registry");
 
         return config;
     }
@@ -141,6 +149,7 @@ abstract contract DeploymentManager is Script {
         require(config.roles.owner != address(0), "Missing owner address");
         require(config.roles.treasury != address(0), "Missing treasury address");
         require(config.roles.executor != address(0), "Missing executor address");
+        require(config.contracts.registry != address(0), "Missing registry address");
     }
 
     function logConfig(NetworkConfig memory config) internal view {
@@ -189,6 +198,9 @@ abstract contract DeploymentManager is Script {
         console.log("Owner:            ", config.roles.owner);
         console.log("Treasury:         ", config.roles.treasury);
         console.log("Executor:         ", config.roles.executor);
+        console.log("");
+        console.log("--- EXTERNAL CONTRACTS ---");
+        console.log("Registry:         ", config.contracts.registry);
         console.log("");
     }
 

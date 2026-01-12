@@ -221,11 +221,24 @@ contract MockKStakingVault is MockERC20Permit {
     }
 }
 
+contract MockRegistry {
+    mapping(address => bool) private _vaults;
+
+    function setVault(address vault, bool isValid) external {
+        _vaults[vault] = isValid;
+    }
+
+    function isVault(address vault) external view returns (bool) {
+        return _vaults[vault];
+    }
+}
+
 contract KamPaymasterIntegrationTest is Test {
     KamPaymaster public paymaster;
     MockERC20Permit public underlyingAsset;
     MockERC20Permit public kToken;
     MockKStakingVault public vault;
+    MockRegistry public mockRegistry;
 
     address public owner;
     address public treasury;
@@ -235,8 +248,8 @@ contract KamPaymasterIntegrationTest is Test {
     address public testUser;
 
     uint256 constant _1_USDC = 1e6;
-    uint48 constant DEFAULT_FEE = 100 * 1e6; // 100 USDC fee
-    uint48 constant DEFAULT_MAX_FEE = 1000 * 1e6; // 1000 USDC max fee
+    uint128 constant DEFAULT_FEE = 100 * 1e6; // 100 USDC fee
+    uint128 constant DEFAULT_MAX_FEE = 1000 * 1e6; // 1000 USDC max fee
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -248,7 +261,11 @@ contract KamPaymasterIntegrationTest is Test {
         kToken = new MockERC20Permit("KAM USDC", "kUSD", 6);
         vault = new MockKStakingVault(address(kToken));
 
-        paymaster = new KamPaymaster(owner, treasury);
+        // Deploy mock registry and register the vault
+        mockRegistry = new MockRegistry();
+        mockRegistry.setVault(address(vault), true);
+
+        paymaster = new KamPaymaster(owner, treasury, address(mockRegistry));
 
         vm.prank(owner);
         paymaster.setTrustedExecutor(executor, true);
@@ -262,8 +279,8 @@ contract KamPaymasterIntegrationTest is Test {
         address token,
         address owner_,
         address spender,
-        uint48 value,
-        uint48 deadline,
+        uint256 value,
+        uint256 deadline,
         uint256 nonce,
         uint256 privateKey
     )
@@ -278,9 +295,9 @@ contract KamPaymasterIntegrationTest is Test {
                 keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"),
                 owner_,
                 spender,
-                uint256(value),
+                value,
                 nonce,
-                uint256(deadline)
+                deadline
             )
         );
 
@@ -303,8 +320,8 @@ contract KamPaymasterIntegrationTest is Test {
                 paymaster.STAKE_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
-                request.deadline,
                 request.vault,
+                request.deadline,
                 request.maxFee,
                 request.kTokenAmount,
                 request.recipient
@@ -330,8 +347,8 @@ contract KamPaymasterIntegrationTest is Test {
                 paymaster.UNSTAKE_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
-                request.deadline,
                 request.vault,
+                request.deadline,
                 request.maxFee,
                 request.stkTokenAmount,
                 request.recipient
@@ -357,8 +374,8 @@ contract KamPaymasterIntegrationTest is Test {
                 paymaster.CLAIM_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
-                request.deadline,
                 request.vault,
+                request.deadline,
                 request.maxFee,
                 request.requestId
             )
@@ -378,22 +395,22 @@ contract KamPaymasterIntegrationTest is Test {
     }
 
     function test_fullGaslessStakeFlow() public {
-        bytes32 requestId = _executeGaslessStake(uint48(10_000 * _1_USDC), DEFAULT_FEE);
+        bytes32 requestId = _executeGaslessStake(uint128(10_000 * _1_USDC), DEFAULT_FEE);
 
         vault.settleBatch();
 
         _executeGaslessClaimStakedShares(requestId);
     }
 
-    function _executeGaslessStake(uint48 stakeAmount, uint48 fee) internal returns (bytes32 requestId) {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
-        uint48 netAmount = stakeAmount - fee;
+    function _executeGaslessStake(uint128 stakeAmount, uint128 fee) internal returns (bytes32 requestId) {
+        uint256 deadline = block.timestamp + 1 hours;
+        uint128 netAmount = stakeAmount - fee;
 
         IKamPaymaster.StakeRequest memory stakeRequest = IKamPaymaster.StakeRequest({
             user: testUser,
-            nonce: uint48(paymaster.nonces(testUser)),
-            deadline: deadline,
+            nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: stakeAmount,
             recipient: testUser
@@ -431,14 +448,14 @@ contract KamPaymasterIntegrationTest is Test {
     }
 
     function _executeGaslessClaimStakedShares(bytes32 requestId) internal {
-        uint48 claimDeadline = uint48(block.timestamp + 1 hours);
-        uint48 claimFee = 5 * 1e6;
+        uint256 claimDeadline = block.timestamp + 1 hours;
+        uint128 claimFee = 5 * 1e6;
 
         IKamPaymaster.ClaimRequest memory claimRequest = IKamPaymaster.ClaimRequest({
             user: testUser,
-            nonce: uint48(paymaster.nonces(testUser)),
-            deadline: claimDeadline,
+            nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
+            deadline: uint96(claimDeadline),
             maxFee: DEFAULT_MAX_FEE,
             requestId: requestId
         });
@@ -463,21 +480,21 @@ contract KamPaymasterIntegrationTest is Test {
         uint256 userStkBalance = vault.balanceOf(testUser);
         require(userStkBalance > 0, "No stkTokens to unstake");
 
-        bytes32 requestId = _executeGaslessUnstake(uint48(userStkBalance / 2), DEFAULT_FEE);
+        bytes32 requestId = _executeGaslessUnstake(uint128(userStkBalance / 2), DEFAULT_FEE);
 
         vault.settleBatch();
 
         _executeGaslessClaimUnstakedAssets(requestId);
     }
 
-    function _executeGaslessUnstake(uint48 unstakeAmount, uint48 fee) internal returns (bytes32 requestId) {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+    function _executeGaslessUnstake(uint128 unstakeAmount, uint128 fee) internal returns (bytes32 requestId) {
+        uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.UnstakeRequest memory unstakeRequest = IKamPaymaster.UnstakeRequest({
             user: testUser,
-            nonce: uint48(paymaster.nonces(testUser)),
-            deadline: deadline,
+            nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             stkTokenAmount: unstakeAmount,
             recipient: testUser
@@ -503,14 +520,14 @@ contract KamPaymasterIntegrationTest is Test {
     }
 
     function _executeGaslessClaimUnstakedAssets(bytes32 requestId) internal {
-        uint48 claimDeadline = uint48(block.timestamp + 1 hours);
-        uint48 claimFee = 5 * 1e6;
+        uint256 claimDeadline = block.timestamp + 1 hours;
+        uint128 claimFee = 5 * 1e6;
 
         IKamPaymaster.ClaimRequest memory claimRequest = IKamPaymaster.ClaimRequest({
             user: testUser,
-            nonce: uint48(paymaster.nonces(testUser)),
-            deadline: claimDeadline,
+            nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
+            deadline: uint96(claimDeadline),
             maxFee: DEFAULT_MAX_FEE,
             requestId: requestId
         });
@@ -530,15 +547,15 @@ contract KamPaymasterIntegrationTest is Test {
     }
 
     function test_revert_expiredDeadline() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 netAmount = stakeAmount - DEFAULT_FEE;
-        uint48 permitDeadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 netAmount = stakeAmount - DEFAULT_FEE;
+        uint256 permitDeadline = block.timestamp + 1 hours;
 
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: testUser,
             nonce: 0,
-            deadline: uint48(block.timestamp - 1), // Expired request
             vault: address(vault),
+            deadline: uint96(block.timestamp - 1), // Expired request
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: stakeAmount,
             recipient: testUser
@@ -573,15 +590,15 @@ contract KamPaymasterIntegrationTest is Test {
     }
 
     function test_revert_invalidNonce() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 netAmount = stakeAmount - DEFAULT_FEE;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 netAmount = stakeAmount - DEFAULT_FEE;
+        uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: testUser,
             nonce: 999, // Wrong nonce
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: stakeAmount,
             recipient: testUser
@@ -618,19 +635,19 @@ contract KamPaymasterIntegrationTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: testUser,
             nonce: 0,
-            deadline: uint48(block.timestamp + 1 hours),
             vault: address(vault),
+            deadline: uint96(block.timestamp + 1 hours),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: 1000 * 1e6,
             recipient: testUser
         });
 
         IKamPaymaster.PermitSignature memory permitForForwarder = IKamPaymaster.PermitSignature({
-            value: DEFAULT_FEE, deadline: uint48(block.timestamp + 1 hours), v: 27, r: bytes32(0), s: bytes32(0)
+            value: DEFAULT_FEE, deadline: block.timestamp + 1 hours, v: 27, r: bytes32(0), s: bytes32(0)
         });
 
         IKamPaymaster.PermitSignature memory permitForVault = IKamPaymaster.PermitSignature({
-            value: 900 * 1e6, deadline: uint48(block.timestamp + 1 hours), v: 27, r: bytes32(0), s: bytes32(0)
+            value: 900 * 1e6, deadline: block.timestamp + 1 hours, v: 27, r: bytes32(0), s: bytes32(0)
         });
 
         address randomUser = makeAddr("random");
@@ -640,14 +657,14 @@ contract KamPaymasterIntegrationTest is Test {
     }
 
     function test_revert_insufficientAmountForFee() public {
-        uint48 tinyAmount = 1;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 tinyAmount = 1;
+        uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: testUser,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: tinyAmount,
             recipient: testUser
@@ -683,23 +700,23 @@ contract KamPaymasterIntegrationTest is Test {
     function test_nonceIncrementsAfterEachOperation() public {
         assertEq(paymaster.nonces(testUser), 0);
 
-        _executeGaslessStakeSimple(testUser, uint48(1000 * _1_USDC), uint48(10 * _1_USDC));
+        _executeGaslessStakeSimple(testUser, uint128(1000 * _1_USDC), uint128(10 * _1_USDC));
         assertEq(paymaster.nonces(testUser), 1);
 
-        _executeGaslessStakeSimple(testUser, uint48(1000 * _1_USDC), uint48(10 * _1_USDC));
+        _executeGaslessStakeSimple(testUser, uint128(1000 * _1_USDC), uint128(10 * _1_USDC));
         assertEq(paymaster.nonces(testUser), 2);
     }
 
     function test_zeroFeeStake() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 fee = 0;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 fee = 0;
+        uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.StakeRequest memory stakeRequest = IKamPaymaster.StakeRequest({
             user: testUser,
-            nonce: uint48(paymaster.nonces(testUser)),
-            deadline: deadline,
+            nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: 0, // maxFee of 0 allows 0 fee
             kTokenAmount: stakeAmount,
             recipient: testUser
@@ -736,16 +753,16 @@ contract KamPaymasterIntegrationTest is Test {
         vault.claimStakedShares(requestId);
     }
 
-    function _executeGaslessStakeSimple(address user, uint48 amount, uint48 fee) internal returns (bytes32) {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
-        uint48 netAmount = amount - fee;
+    function _executeGaslessStakeSimple(address user, uint128 amount, uint128 fee) internal returns (bytes32) {
+        uint256 deadline = block.timestamp + 1 hours;
+        uint128 netAmount = amount - fee;
         uint256 tokenNonce = kToken.nonces(user);
 
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
-            nonce: uint48(paymaster.nonces(user)),
-            deadline: deadline,
+            nonce: uint96(paymaster.nonces(user)),
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: amount,
             recipient: user

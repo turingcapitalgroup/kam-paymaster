@@ -148,11 +148,24 @@ contract MockKStakingVault is MockERC20Permit {
     }
 }
 
+contract MockRegistry {
+    mapping(address => bool) private _vaults;
+
+    function setVault(address vault, bool isValid) external {
+        _vaults[vault] = isValid;
+    }
+
+    function isVault(address vault) external view returns (bool) {
+        return _vaults[vault];
+    }
+}
+
 contract KamPaymasterTest is Test {
     KamPaymaster public paymaster;
     MockERC20Permit public kToken;
     MockERC20Permit public underlyingAsset;
     MockKStakingVault public vault;
+    MockRegistry public mockRegistry;
 
     address public owner;
     address public treasury;
@@ -160,7 +173,7 @@ contract KamPaymasterTest is Test {
     uint256 public userPrivateKey;
     address public executor;
 
-    uint48 constant DEFAULT_MAX_FEE = 100 * 1e6; // Default max fee for tests
+    uint128 constant DEFAULT_MAX_FEE = 100 * 1e6; // Default max fee for tests
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -173,8 +186,12 @@ contract KamPaymasterTest is Test {
         kToken = new MockERC20Permit("KAM USDC", "kUSDC", 6);
         vault = new MockKStakingVault(address(kToken));
 
+        // Deploy mock registry and register the vault
+        mockRegistry = new MockRegistry();
+        mockRegistry.setVault(address(vault), true);
+
         vm.prank(owner);
-        paymaster = new KamPaymaster(owner, treasury);
+        paymaster = new KamPaymaster(owner, treasury, address(mockRegistry));
 
         vm.prank(owner);
         paymaster.setTrustedExecutor(executor, true);
@@ -207,19 +224,19 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
             nonce: 0,
-            deadline: uint48(block.timestamp + 1 hours),
             vault: address(vault),
+            deadline: uint96(block.timestamp + 1 hours),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: 1000 * 1e6,
             recipient: user
         });
 
         IKamPaymaster.PermitSignature memory permitForForwarder = IKamPaymaster.PermitSignature({
-            value: 100 * 1e6, deadline: uint48(block.timestamp + 1 hours), v: 27, r: bytes32(0), s: bytes32(0)
+            value: 100 * 1e6, deadline: block.timestamp + 1 hours, v: 27, r: bytes32(0), s: bytes32(0)
         });
 
         IKamPaymaster.PermitSignature memory permitForVault = IKamPaymaster.PermitSignature({
-            value: 900 * 1e6, deadline: uint48(block.timestamp + 1 hours), v: 27, r: bytes32(0), s: bytes32(0)
+            value: 900 * 1e6, deadline: block.timestamp + 1 hours, v: 27, r: bytes32(0), s: bytes32(0)
         });
 
         vm.prank(notExecutor);
@@ -267,10 +284,10 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeRequestStakeWithPermit() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 fee = 10 * 1e6;
-        uint48 netAmount = stakeAmount - fee;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 fee = 10 * 1e6;
+        uint128 netAmount = stakeAmount - fee;
+        uint256 deadline = block.timestamp + 1 hours;
 
         // Create permit signature for forwarder (to pull fee)
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
@@ -286,8 +303,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: stakeAmount,
             recipient: user
@@ -308,10 +325,10 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeStake_withoutPermit() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 fee = 10 * 1e6;
-        uint48 netAmount = stakeAmount - fee;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 fee = 10 * 1e6;
+        uint128 netAmount = stakeAmount - fee;
+        uint256 deadline = block.timestamp + 1 hours;
 
         // User approves paymaster for fee and vault for net amount
         vm.startPrank(user);
@@ -323,8 +340,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: stakeAmount,
             recipient: user
@@ -344,9 +361,9 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeRequestUnstakeWithPermit() public {
-        uint48 unstakeAmount = 1000 * 1e6;
-        uint48 fee = 10 * 1e6;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 unstakeAmount = 1000 * 1e6;
+        uint128 fee = 10 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
 
         // Create permit signature for stkToken (vault)
         IKamPaymaster.PermitSignature memory permitSig = _createPermitSignature(
@@ -357,8 +374,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.UnstakeRequest memory request = IKamPaymaster.UnstakeRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             stkTokenAmount: unstakeAmount,
             recipient: user
@@ -378,9 +395,9 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeUnstake_withoutPermit() public {
-        uint48 unstakeAmount = 1000 * 1e6;
-        uint48 fee = 10 * 1e6;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 unstakeAmount = 1000 * 1e6;
+        uint128 fee = 10 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
 
         // User approves paymaster directly
         vm.prank(user);
@@ -390,8 +407,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.UnstakeRequest memory request = IKamPaymaster.UnstakeRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             stkTokenAmount: unstakeAmount,
             recipient: user
@@ -411,8 +428,8 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeClaimStakedSharesWithPermit() public {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
-        uint48 fee = 5 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint128 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create permit signature for stkToken (for fee payment)
@@ -424,8 +441,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             requestId: mockRequestId
         });
@@ -446,8 +463,8 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeClaimStakedShares_withoutPermit() public {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
-        uint48 fee = 5 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint128 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // User approves paymaster for fee
@@ -458,8 +475,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             requestId: mockRequestId
         });
@@ -479,8 +496,8 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeClaimUnstakedAssetsWithPermit() public {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
-        uint48 fee = 5 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint128 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create permit signature for kToken (for fee payment)
@@ -492,8 +509,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             requestId: mockRequestId
         });
@@ -513,8 +530,8 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeClaimUnstakedAssets_withoutPermit() public {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
-        uint48 fee = 5 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint128 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // User approves paymaster for fee
@@ -525,8 +542,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             requestId: mockRequestId
         });
@@ -546,16 +563,16 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeClaimWithZeroFee() public {
-        uint48 deadline = uint48(block.timestamp + 1 hours);
-        uint48 fee = 0;
+        uint256 deadline = block.timestamp + 1 hours;
+        uint128 fee = 0;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create claim request
         IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: 0, // maxFee of 0 allows 0 fee
             requestId: mockRequestId
         });
@@ -574,11 +591,11 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_feeExceedsMax() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 maxFee = 10 * 1e6;
-        uint48 fee = 50 * 1e6; // Fee exceeds maxFee
-        uint48 netAmount = stakeAmount - fee;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 maxFee = 10 * 1e6;
+        uint128 fee = 50 * 1e6; // Fee exceeds maxFee
+        uint128 netAmount = stakeAmount - fee;
+        uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
             address(kToken), user, address(paymaster), fee, deadline, kToken.nonces(user), userPrivateKey
@@ -591,8 +608,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: maxFee,
             kTokenAmount: stakeAmount,
             recipient: user
@@ -606,9 +623,9 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_insufficientAmountForFee() public {
-        uint48 stakeAmount = 100 * 1e6;
-        uint48 fee = 200 * 1e6; // Fee greater than amount
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 100 * 1e6;
+        uint128 fee = 200 * 1e6; // Fee greater than amount
+        uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
             address(kToken), user, address(paymaster), fee, deadline, kToken.nonces(user), userPrivateKey
@@ -622,8 +639,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: fee, // maxFee set to fee to pass maxFee check
             kTokenAmount: stakeAmount,
             recipient: user
@@ -637,11 +654,11 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_requestExpired() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 fee = 10 * 1e6;
-        uint48 netAmount = stakeAmount - fee;
-        uint48 deadline = uint48(block.timestamp - 1); // Already expired
-        uint48 permitDeadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 fee = 10 * 1e6;
+        uint128 netAmount = stakeAmount - fee;
+        uint256 deadline = block.timestamp - 1; // Already expired
+        uint256 permitDeadline = block.timestamp + 1 hours;
 
         // Use valid permits (not expired), but expired request
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
@@ -655,8 +672,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
             nonce: 0,
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: stakeAmount,
             recipient: user
@@ -670,10 +687,10 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_invalidNonce() public {
-        uint48 stakeAmount = 1000 * 1e6;
-        uint48 fee = 10 * 1e6;
-        uint48 netAmount = stakeAmount - fee;
-        uint48 deadline = uint48(block.timestamp + 1 hours);
+        uint128 stakeAmount = 1000 * 1e6;
+        uint128 fee = 10 * 1e6;
+        uint128 netAmount = stakeAmount - fee;
+        uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
             address(kToken), user, address(paymaster), fee, deadline, kToken.nonces(user), userPrivateKey
@@ -686,8 +703,8 @@ contract KamPaymasterTest is Test {
         IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
             user: user,
             nonce: 999, // Wrong nonce
-            deadline: deadline,
             vault: address(vault),
+            deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: stakeAmount,
             recipient: user
@@ -706,8 +723,8 @@ contract KamPaymasterTest is Test {
         address token,
         address owner_,
         address spender,
-        uint48 value,
-        uint48 deadline,
+        uint256 value,
+        uint256 deadline,
         uint256 nonce,
         uint256 privateKey
     )
@@ -718,8 +735,7 @@ contract KamPaymasterTest is Test {
         bytes32 permitTypehash =
             keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
-        bytes32 structHash =
-            keccak256(abi.encode(permitTypehash, owner_, spender, uint256(value), nonce, uint256(deadline)));
+        bytes32 structHash = keccak256(abi.encode(permitTypehash, owner_, spender, value, nonce, deadline));
 
         bytes32 domainSeparator = MockERC20Permit(token).DOMAIN_SEPARATOR();
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
@@ -737,17 +753,13 @@ contract KamPaymasterTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 stakeRequestTypehash = keccak256(
-            "StakeRequest(address user,uint48 nonce,uint48 deadline,address vault,uint48 maxFee,uint48 kTokenAmount,address recipient)"
-        );
-
         bytes32 structHash = keccak256(
             abi.encode(
-                stakeRequestTypehash,
+                paymaster.STAKE_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
-                request.deadline,
                 request.vault,
+                request.deadline,
                 request.maxFee,
                 request.kTokenAmount,
                 request.recipient
@@ -769,17 +781,13 @@ contract KamPaymasterTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 unstakeRequestTypehash = keccak256(
-            "UnstakeRequest(address user,uint48 nonce,uint48 deadline,address vault,uint48 maxFee,uint48 stkTokenAmount,address recipient)"
-        );
-
         bytes32 structHash = keccak256(
             abi.encode(
-                unstakeRequestTypehash,
+                paymaster.UNSTAKE_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
-                request.deadline,
                 request.vault,
+                request.deadline,
                 request.maxFee,
                 request.stkTokenAmount,
                 request.recipient
@@ -801,17 +809,13 @@ contract KamPaymasterTest is Test {
         view
         returns (bytes memory)
     {
-        bytes32 claimRequestTypehash = keccak256(
-            "ClaimRequest(address user,uint48 nonce,uint48 deadline,address vault,uint48 maxFee,bytes32 requestId)"
-        );
-
         bytes32 structHash = keccak256(
             abi.encode(
-                claimRequestTypehash,
+                paymaster.CLAIM_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
-                request.deadline,
                 request.vault,
+                request.deadline,
                 request.maxFee,
                 request.requestId
             )

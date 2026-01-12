@@ -55,6 +55,12 @@ interface IKamPaymaster {
     /// @param treasury The new treasury address
     event TreasuryUpdated(address indexed treasury);
 
+    /// @notice Emitted when tokens are rescued from the contract
+    /// @param token The token address (address(0) for ETH)
+    /// @param to The recipient address
+    /// @param amount The amount rescued
+    event TokensRescued(address indexed token, address indexed to, uint256 amount);
+
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
@@ -111,71 +117,77 @@ interface IKamPaymaster {
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Request structure for gasless stake operations (packed for gas efficiency)
-    /// @dev Fits in 3 storage slots: slot1(user+nonce), slot2(vault+deadline+maxFee), slot3(recipient+amount)
+    /// @notice Request structure for gasless stake operations
+    /// @dev Packed into 4 storage slots for gas efficiency:
+    ///      Slot 1: user (20) + nonce (12) = 32 bytes
+    ///      Slot 2: vault (20) + deadline (12) = 32 bytes
+    ///      Slot 3: maxFee (16) + kTokenAmount (16) = 32 bytes
+    ///      Slot 4: recipient (20) = 20 bytes
     /// @param user The address of the user initiating the stake
-    /// @param nonce The user's current nonce (uint48 supports up to 281 trillion operations)
+    /// @param nonce The user's current nonce (uint96 max ~79 septillion)
     /// @param vault The kStakingVault address
-    /// @param deadline The expiration timestamp (uint48 supports dates until year 8.9 million)
-    /// @param maxFee The maximum fee the user agrees to pay (uint48 supports up to 281T with 6 decimals)
+    /// @param deadline The expiration timestamp (uint96 max ~2.5 quadrillion seconds)
+    /// @param maxFee The maximum fee the user agrees to pay
+    /// @param kTokenAmount The gross amount of kTokens including fee (uint128 supports 340B tokens at 18 decimals)
     /// @param recipient The address to receive stkTokens
-    /// @param kTokenAmount The gross amount of kTokens including fee (uint96 supports up to 79B with 18 decimals)
     struct StakeRequest {
-        address user; // 20 bytes
-        uint48 nonce; // 6 bytes
-        uint48 deadline; // 6 bytes
-        address vault; // 20 bytes
-        uint48 maxFee; // 6 bytes
-        uint48 kTokenAmount; // 6 bytes
-        address recipient; // 20 bytes
+        address user;
+        uint96 nonce;
+        address vault;
+        uint96 deadline;
+        uint128 maxFee;
+        uint128 kTokenAmount;
+        address recipient;
     }
 
-    /// @notice Request structure for gasless unstake operations (packed for gas efficiency)
+    /// @notice Request structure for gasless unstake operations
+    /// @dev Packed into 4 storage slots for gas efficiency
     /// @param user The address of the user initiating the unstake
-    /// @param nonce The user's current nonce
-    /// @param deadline The expiration timestamp
+    /// @param nonce The user's current nonce (uint96 max ~79 septillion)
     /// @param vault The kStakingVault address
+    /// @param deadline The expiration timestamp (uint96 max ~2.5 quadrillion seconds)
     /// @param maxFee The maximum fee the user agrees to pay
-    /// @param stkTokenAmount The gross amount of stkTokens including fee
+    /// @param stkTokenAmount The gross amount of stkTokens including fee (uint128 supports 340B tokens at 18 decimals)
     /// @param recipient The address to receive kTokens
     struct UnstakeRequest {
-        address user; // 20 bytes
-        uint48 nonce; // 6 bytes
-        uint48 deadline; // 6 bytes
-        address vault; // 20 bytes
-        uint48 maxFee; // 6 bytes
-        uint48 stkTokenAmount; // 6 bytes
-        address recipient; // 20 bytes
+        address user;
+        uint96 nonce;
+        address vault;
+        uint96 deadline;
+        uint128 maxFee;
+        uint128 stkTokenAmount;
+        address recipient;
     }
 
-    /// @notice Request structure for gasless claim operations (packed for gas efficiency)
+    /// @notice Request structure for gasless claim operations
+    /// @dev Packed into 4 storage slots for gas efficiency
     /// @param user The address of the user claiming
-    /// @param nonce The user's current nonce
-    /// @param deadline The expiration timestamp
+    /// @param nonce The user's current nonce (uint96 max ~79 septillion)
     /// @param vault The kStakingVault address
+    /// @param deadline The expiration timestamp (uint96 max ~2.5 quadrillion seconds)
     /// @param maxFee The maximum fee the user agrees to pay
     /// @param requestId The stake/unstake request ID to claim
     struct ClaimRequest {
-        address user; // 20 bytes
-        uint48 nonce; // 6 bytes
-        uint48 deadline; // 6 bytes
-        address vault; // 20 bytes
-        uint48 maxFee; // 6 bytes
-        bytes32 requestId; // 32 bytes
+        address user;
+        uint96 nonce;
+        address vault;
+        uint96 deadline;
+        uint128 maxFee;
+        bytes32 requestId;
     }
 
-    /// @notice Permit signature parameters for EIP-2612 (packed)
+    /// @notice Permit signature parameters for EIP-2612
     /// @param value The permit value (allowance amount)
     /// @param deadline The permit deadline
     /// @param v The recovery byte of the signature
     /// @param r Half of the ECDSA signature pair
     /// @param s Half of the ECDSA signature pair
     struct PermitSignature {
-        uint48 value; // 6 bytes - matches token amount sizes
-        uint48 deadline; // 6 bytes
-        uint8 v; // 1 byte
-        bytes32 r; // 32 bytes
-        bytes32 s; // 32 bytes
+        uint256 value;
+        uint256 deadline;
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -195,7 +207,7 @@ interface IKamPaymaster {
         PermitSignature calldata permitForForwarder,
         PermitSignature calldata permitForVault,
         bytes calldata requestSig,
-        uint48 fee
+        uint128 fee
     )
         external
         returns (bytes32 requestId);
@@ -211,7 +223,7 @@ interface IKamPaymaster {
         UnstakeRequest calldata request,
         PermitSignature calldata permitSig,
         bytes calldata requestSig,
-        uint48 fee
+        uint128 fee
     )
         external
         returns (bytes32 requestId);
@@ -226,7 +238,7 @@ interface IKamPaymaster {
         ClaimRequest calldata request,
         PermitSignature calldata permitSig,
         bytes calldata requestSig,
-        uint48 fee
+        uint128 fee
     )
         external;
 
@@ -240,7 +252,7 @@ interface IKamPaymaster {
         ClaimRequest calldata request,
         PermitSignature calldata permitSig,
         bytes calldata requestSig,
-        uint48 fee
+        uint128 fee
     )
         external;
 
@@ -256,7 +268,7 @@ interface IKamPaymaster {
     function executeRequestStake(
         StakeRequest calldata request,
         bytes calldata requestSig,
-        uint48 fee
+        uint128 fee
     )
         external
         returns (bytes32 requestId);
@@ -269,7 +281,7 @@ interface IKamPaymaster {
     function executeRequestUnstake(
         UnstakeRequest calldata request,
         bytes calldata requestSig,
-        uint48 fee
+        uint128 fee
     )
         external
         returns (bytes32 requestId);
@@ -278,13 +290,13 @@ interface IKamPaymaster {
     /// @param request The claim request parameters
     /// @param requestSig The signature for the meta-transaction
     /// @param fee The fee amount in stkTokens (must be <= request.maxFee)
-    function executeClaimStakedShares(ClaimRequest calldata request, bytes calldata requestSig, uint48 fee) external;
+    function executeClaimStakedShares(ClaimRequest calldata request, bytes calldata requestSig, uint128 fee) external;
 
     /// @notice Execute a gasless claim of unstaked assets (assumes allowance already set for fee)
     /// @param request The claim request parameters
     /// @param requestSig The signature for the meta-transaction
     /// @param fee The fee amount in kTokens (must be <= request.maxFee)
-    function executeClaimUnstakedAssets(ClaimRequest calldata request, bytes calldata requestSig, uint48 fee) external;
+    function executeClaimUnstakedAssets(ClaimRequest calldata request, bytes calldata requestSig, uint128 fee) external;
 
     /*//////////////////////////////////////////////////////////////
                           BATCH FUNCTIONS
@@ -302,7 +314,7 @@ interface IKamPaymaster {
         PermitSignature[] calldata permitsForForwarder,
         PermitSignature[] calldata permitsForVault,
         bytes[] calldata requestSigs,
-        uint48[] calldata fees
+        uint128[] calldata fees
     )
         external
         returns (bytes32[] memory requestIds);
@@ -317,7 +329,7 @@ interface IKamPaymaster {
         UnstakeRequest[] calldata requests,
         PermitSignature[] calldata permitSigs,
         bytes[] calldata requestSigs,
-        uint48[] calldata fees
+        uint128[] calldata fees
     )
         external
         returns (bytes32[] memory requestIds);
@@ -330,7 +342,7 @@ interface IKamPaymaster {
     function executeRequestStakeBatch(
         StakeRequest[] calldata requests,
         bytes[] calldata requestSigs,
-        uint48[] calldata fees
+        uint128[] calldata fees
     )
         external
         returns (bytes32[] memory requestIds);
@@ -343,7 +355,7 @@ interface IKamPaymaster {
     function executeRequestUnstakeBatch(
         UnstakeRequest[] calldata requests,
         bytes[] calldata requestSigs,
-        uint48[] calldata fees
+        uint128[] calldata fees
     )
         external
         returns (bytes32[] memory requestIds);

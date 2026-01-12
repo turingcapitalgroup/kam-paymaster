@@ -29,8 +29,8 @@ contract DeployKamPaymasterScript is Script, DeploymentManager {
 
         vm.startBroadcast(config.roles.owner);
 
-        // Deploy KamPaymaster
-        KamPaymaster paymaster = new KamPaymaster(config.roles.owner, config.roles.treasury);
+        // Deploy KamPaymaster with registry from config
+        KamPaymaster paymaster = new KamPaymaster(config.roles.owner, config.roles.treasury, config.contracts.registry);
 
         // Set trusted executor
         paymaster.setTrustedExecutor(config.roles.executor, true);
