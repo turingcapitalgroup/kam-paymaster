@@ -11,7 +11,7 @@ The KamPaymaster contract allows users to execute staking operations without hol
 - **EIP-712 Typed Signatures**: Secure meta-transaction signing for gasless operations
 - **EIP-2612 Permit Integration**: Gasless token approvals using permit signatures
 - **maxFee Protection**: Users specify maximum acceptable fee in their signatures
-- **Packed Structs**: Gas-optimized calldata using uint48 for amounts and timestamps
+- **Packed Structs**: Gas-optimized calldata with optimal slot packing (address+uint96 pairs)
 - **Trusted Executors**: Permissioned relayer system for transaction execution
 - **Batch Operations**: Execute multiple requests in a single transaction
 
@@ -137,41 +137,41 @@ vault.setTrustedForwarder(address(paymaster));
 
 ## EIP-712 Type Definitions
 
-### StakeRequest (Packed)
+### StakeRequest
 ```solidity
 StakeRequest(
-    address user,
-    uint48 nonce,
-    uint48 deadline,
-    address vault,
-    uint48 maxFee,
-    uint48 kTokenAmount,
-    address recipient
+    address user,      // 20 bytes ─┐
+    uint96 nonce,      // 12 bytes ─┘ Slot 1
+    address vault,     // 20 bytes ─┐
+    uint96 deadline,   // 12 bytes ─┘ Slot 2
+    address recipient, // 20 bytes ─┐
+    uint96 maxFee,     // 12 bytes ─┘ Slot 3
+    uint256 kTokenAmount // 32 bytes  Slot 4
 )
 ```
 
-### UnstakeRequest (Packed)
+### UnstakeRequest
 ```solidity
 UnstakeRequest(
-    address user,
-    uint48 nonce,
-    uint48 deadline,
-    address vault,
-    uint48 maxFee,
-    uint48 stkTokenAmount,
-    address recipient
+    address user,      // 20 bytes ─┐
+    uint96 nonce,      // 12 bytes ─┘ Slot 1
+    address vault,     // 20 bytes ─┐
+    uint96 deadline,   // 12 bytes ─┘ Slot 2
+    address recipient, // 20 bytes ─┐
+    uint96 maxFee,     // 12 bytes ─┘ Slot 3
+    uint256 stkTokenAmount // 32 bytes  Slot 4
 )
 ```
 
-### ClaimRequest (Packed)
+### ClaimRequest
 ```solidity
 ClaimRequest(
-    address user,
-    uint48 nonce,
-    uint48 deadline,
-    address vault,
-    uint48 maxFee,
-    bytes32 requestId
+    address user,      // 20 bytes ─┐
+    uint96 nonce,      // 12 bytes ─┘ Slot 1
+    address vault,     // 20 bytes ─┐
+    uint96 deadline,   // 12 bytes ─┘ Slot 2
+    uint96 maxFee,     // 12 bytes    Slot 3
+    bytes32 requestId  // 32 bytes    Slot 4
 )
 ```
 
@@ -182,11 +182,11 @@ ClaimRequest(
 const stakeRequest = {
     user: userAddress,
     nonce: await paymaster.nonces(userAddress),
-    deadline: Math.floor(Date.now() / 1000) + 3600,
     vault: vaultAddress,
+    deadline: Math.floor(Date.now() / 1000) + 3600,
+    recipient: userAddress,
     maxFee: parseUnits("100", 6), // Max 100 USDC fee
-    kTokenAmount: parseUnits("1000", 6),
-    recipient: userAddress
+    kTokenAmount: parseUnits("1000", 6)
 };
 
 // 2. Sign permit for paymaster (fee amount)
