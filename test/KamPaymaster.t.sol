@@ -173,7 +173,7 @@ contract KamPaymasterTest is Test {
     uint256 public userPrivateKey;
     address public executor;
 
-    uint128 constant DEFAULT_MAX_FEE = 100 * 1e6; // Default max fee for tests
+    uint96 constant DEFAULT_MAX_FEE = 100 * 1e6; // Default max fee for tests
 
     function setUp() public {
         owner = makeAddr("owner");
@@ -284,9 +284,9 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeRequestStakeWithPermit() public {
-        uint128 stakeAmount = 1000 * 1e6;
-        uint128 fee = 10 * 1e6;
-        uint128 netAmount = stakeAmount - fee;
+        uint96 stakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
+        uint96 netAmount = stakeAmount - fee;
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create permit signature for forwarder (to pull fee)
@@ -325,9 +325,9 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeStake_withoutPermit() public {
-        uint128 stakeAmount = 1000 * 1e6;
-        uint128 fee = 10 * 1e6;
-        uint128 netAmount = stakeAmount - fee;
+        uint96 stakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
+        uint96 netAmount = stakeAmount - fee;
         uint256 deadline = block.timestamp + 1 hours;
 
         // User approves paymaster for fee and vault for net amount
@@ -361,8 +361,8 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeRequestUnstakeWithPermit() public {
-        uint128 unstakeAmount = 1000 * 1e6;
-        uint128 fee = 10 * 1e6;
+        uint96 unstakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create permit signature for stkToken (vault)
@@ -395,8 +395,8 @@ contract KamPaymasterTest is Test {
     }
 
     function test_executeUnstake_withoutPermit() public {
-        uint128 unstakeAmount = 1000 * 1e6;
-        uint128 fee = 10 * 1e6;
+        uint96 unstakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
         uint256 deadline = block.timestamp + 1 hours;
 
         // User approves paymaster directly
@@ -429,7 +429,7 @@ contract KamPaymasterTest is Test {
 
     function test_executeClaimStakedSharesWithPermit() public {
         uint256 deadline = block.timestamp + 1 hours;
-        uint128 fee = 5 * 1e6;
+        uint96 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create permit signature for stkToken (for fee payment)
@@ -464,7 +464,7 @@ contract KamPaymasterTest is Test {
 
     function test_executeClaimStakedShares_withoutPermit() public {
         uint256 deadline = block.timestamp + 1 hours;
-        uint128 fee = 5 * 1e6;
+        uint96 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // User approves paymaster for fee
@@ -497,7 +497,7 @@ contract KamPaymasterTest is Test {
 
     function test_executeClaimUnstakedAssetsWithPermit() public {
         uint256 deadline = block.timestamp + 1 hours;
-        uint128 fee = 5 * 1e6;
+        uint96 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create permit signature for kToken (for fee payment)
@@ -531,7 +531,7 @@ contract KamPaymasterTest is Test {
 
     function test_executeClaimUnstakedAssets_withoutPermit() public {
         uint256 deadline = block.timestamp + 1 hours;
-        uint128 fee = 5 * 1e6;
+        uint96 fee = 5 * 1e6;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // User approves paymaster for fee
@@ -564,7 +564,7 @@ contract KamPaymasterTest is Test {
 
     function test_executeClaimWithZeroFee() public {
         uint256 deadline = block.timestamp + 1 hours;
-        uint128 fee = 0;
+        uint96 fee = 0;
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create claim request
@@ -591,10 +591,10 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_feeExceedsMax() public {
-        uint128 stakeAmount = 1000 * 1e6;
-        uint128 maxFee = 10 * 1e6;
-        uint128 fee = 50 * 1e6; // Fee exceeds maxFee
-        uint128 netAmount = stakeAmount - fee;
+        uint96 stakeAmount = 1000 * 1e6;
+        uint96 maxFee = 10 * 1e6;
+        uint96 fee = 50 * 1e6; // Fee exceeds maxFee
+        uint96 netAmount = stakeAmount - fee;
         uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
@@ -623,8 +623,8 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_insufficientAmountForFee() public {
-        uint128 stakeAmount = 100 * 1e6;
-        uint128 fee = 200 * 1e6; // Fee greater than amount
+        uint96 stakeAmount = 100 * 1e6;
+        uint96 fee = 200 * 1e6; // Fee greater than amount
         uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
@@ -654,9 +654,9 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_requestExpired() public {
-        uint128 stakeAmount = 1000 * 1e6;
-        uint128 fee = 10 * 1e6;
-        uint128 netAmount = stakeAmount - fee;
+        uint96 stakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
+        uint96 netAmount = stakeAmount - fee;
         uint256 deadline = block.timestamp - 1; // Already expired
         uint256 permitDeadline = block.timestamp + 1 hours;
 
@@ -687,9 +687,9 @@ contract KamPaymasterTest is Test {
     }
 
     function test_revert_invalidNonce() public {
-        uint128 stakeAmount = 1000 * 1e6;
-        uint128 fee = 10 * 1e6;
-        uint128 netAmount = stakeAmount - fee;
+        uint96 stakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
+        uint96 netAmount = stakeAmount - fee;
         uint256 deadline = block.timestamp + 1 hours;
 
         IKamPaymaster.PermitSignature memory permitForForwarder = _createPermitSignature(
@@ -760,9 +760,9 @@ contract KamPaymasterTest is Test {
                 request.nonce,
                 request.vault,
                 request.deadline,
+                request.recipient,
                 request.maxFee,
-                request.kTokenAmount,
-                request.recipient
+                request.kTokenAmount
             )
         );
 
@@ -788,9 +788,9 @@ contract KamPaymasterTest is Test {
                 request.nonce,
                 request.vault,
                 request.deadline,
+                request.recipient,
                 request.maxFee,
-                request.stkTokenAmount,
-                request.recipient
+                request.stkTokenAmount
             )
         );
 

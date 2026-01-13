@@ -34,17 +34,17 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
 
     /// @dev EIP-712 typehash for StakeRequest
     bytes32 public constant STAKE_REQUEST_TYPEHASH = keccak256(
-        "StakeRequest(address user,uint96 nonce,address vault,uint96 deadline,uint128 maxFee,uint128 kTokenAmount,address recipient)"
+        "StakeRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 kTokenAmount)"
     );
 
     /// @dev EIP-712 typehash for UnstakeRequest
     bytes32 public constant UNSTAKE_REQUEST_TYPEHASH = keccak256(
-        "UnstakeRequest(address user,uint96 nonce,address vault,uint96 deadline,uint128 maxFee,uint128 stkTokenAmount,address recipient)"
+        "UnstakeRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 stkTokenAmount)"
     );
 
     /// @dev EIP-712 typehash for ClaimRequest
     bytes32 public constant CLAIM_REQUEST_TYPEHASH = keccak256(
-        "ClaimRequest(address user,uint96 nonce,address vault,uint96 deadline,uint128 maxFee,bytes32 requestId)"
+        "ClaimRequest(address user,uint96 nonce,address vault,uint96 deadline,uint96 maxFee,bytes32 requestId)"
     );
 
     /*//////////////////////////////////////////////////////////////
@@ -104,7 +104,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         PermitSignature calldata permitForForwarder,
         PermitSignature calldata permitForVault,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -125,7 +125,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         UnstakeRequest calldata request,
         PermitSignature calldata permitSig,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -145,7 +145,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         ClaimRequest calldata request,
         PermitSignature calldata permitSig,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -164,7 +164,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         ClaimRequest calldata request,
         PermitSignature calldata permitSig,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -186,7 +186,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     function executeRequestStake(
         StakeRequest calldata request,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -200,7 +200,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     function executeRequestUnstake(
         UnstakeRequest calldata request,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -213,7 +213,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     function executeClaimStakedShares(
         ClaimRequest calldata request,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -225,7 +225,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     function executeClaimUnstakedAssets(
         ClaimRequest calldata request,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         external
         onlyTrustedExecutor
@@ -244,7 +244,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         PermitSignature[] calldata permitsForForwarder,
         PermitSignature[] calldata permitsForVault,
         bytes[] calldata requestSigs,
-        uint128[] calldata fees
+        uint96[] calldata fees
     )
         external
         onlyTrustedExecutor
@@ -275,7 +275,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         UnstakeRequest[] calldata requests,
         PermitSignature[] calldata permitSigs,
         bytes[] calldata requestSigs,
-        uint128[] calldata fees
+        uint96[] calldata fees
     )
         external
         onlyTrustedExecutor
@@ -300,7 +300,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     function executeRequestStakeBatch(
         StakeRequest[] calldata requests,
         bytes[] calldata requestSigs,
-        uint128[] calldata fees
+        uint96[] calldata fees
     )
         external
         onlyTrustedExecutor
@@ -326,7 +326,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     function executeRequestUnstakeBatch(
         UnstakeRequest[] calldata requests,
         bytes[] calldata requestSigs,
-        uint128[] calldata fees
+        uint96[] calldata fees
     )
         external
         onlyTrustedExecutor
@@ -416,7 +416,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         PermitSignature calldata permitForForwarder,
         PermitSignature calldata permitForVault,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         internal
         returns (bytes32 requestId)
@@ -436,7 +436,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         UnstakeRequest calldata request,
         PermitSignature calldata permitSig,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         internal
         returns (bytes32 requestId)
@@ -455,7 +455,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         StakeRequest calldata request,
         bytes calldata requestSig,
         address kToken,
-        uint128 fee
+        uint96 fee
     )
         internal
         returns (bytes32 requestId)
@@ -495,7 +495,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     function _executeUnstake(
         UnstakeRequest calldata request,
         bytes calldata requestSig,
-        uint128 fee
+        uint96 fee
     )
         internal
         returns (bytes32 requestId)
@@ -534,7 +534,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     }
 
     /// @dev Execute claim staked shares logic
-    function _executeClaimStakedShares(ClaimRequest calldata request, bytes calldata requestSig, uint128 fee) internal {
+    function _executeClaimStakedShares(ClaimRequest calldata request, bytes calldata requestSig, uint96 fee) internal {
         _validateClaimRequest(request, requestSig, fee);
 
         // Validate vault is registered in the protocol
@@ -564,7 +564,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         ClaimRequest calldata request,
         bytes calldata requestSig,
         address kToken,
-        uint128 fee
+        uint96 fee
     )
         internal
     {
@@ -591,7 +591,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     }
 
     /// @dev Validate a stake request
-    function _validateStakeRequest(StakeRequest calldata request, bytes calldata sig, uint128 fee) internal view {
+    function _validateStakeRequest(StakeRequest calldata request, bytes calldata sig, uint96 fee) internal view {
         if (request.deadline < block.timestamp) revert RequestExpired();
         if (request.nonce != _nonces[request.user]) revert InvalidNonce();
         if (request.kTokenAmount == 0) revert ZeroAmount();
@@ -605,9 +605,9 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
                 request.nonce,
                 request.vault,
                 request.deadline,
+                request.recipient,
                 request.maxFee,
-                request.kTokenAmount,
-                request.recipient
+                request.kTokenAmount
             )
         );
 
@@ -615,7 +615,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     }
 
     /// @dev Validate an unstake request
-    function _validateUnstakeRequest(UnstakeRequest calldata request, bytes calldata sig, uint128 fee) internal view {
+    function _validateUnstakeRequest(UnstakeRequest calldata request, bytes calldata sig, uint96 fee) internal view {
         if (request.deadline < block.timestamp) revert RequestExpired();
         if (request.nonce != _nonces[request.user]) revert InvalidNonce();
         if (request.stkTokenAmount == 0) revert ZeroAmount();
@@ -629,9 +629,9 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
                 request.nonce,
                 request.vault,
                 request.deadline,
+                request.recipient,
                 request.maxFee,
-                request.stkTokenAmount,
-                request.recipient
+                request.stkTokenAmount
             )
         );
 
@@ -639,7 +639,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     }
 
     /// @dev Validate a claim request
-    function _validateClaimRequest(ClaimRequest calldata request, bytes calldata sig, uint128 fee) internal view {
+    function _validateClaimRequest(ClaimRequest calldata request, bytes calldata sig, uint96 fee) internal view {
         if (request.deadline < block.timestamp) revert RequestExpired();
         if (request.nonce != _nonces[request.user]) revert InvalidNonce();
         if (fee > request.maxFee) revert FeeExceedsMax();
