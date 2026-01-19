@@ -71,36 +71,39 @@ mapping(address => bool) private _trustedExecutors;   // Whitelisted relayers
 
 ### Request Types
 
-All request structs use **packed fields** (uint48) for gas optimization:
+All request structs use **packed fields** for gas optimization:
 
 ```solidity
+// Packed into 4 slots (128 bytes)
 struct StakeRequest {
-    address user;           // 20 bytes
-    uint48 nonce;           // 6 bytes
-    uint48 deadline;        // 6 bytes
-    address vault;          // 20 bytes
-    uint48 maxFee;          // 6 bytes
-    uint48 kTokenAmount;    // 6 bytes
-    address recipient;      // 20 bytes
+    address user;           // 20 bytes ─┐
+    uint96 nonce;           // 12 bytes ─┘ Slot 1
+    address vault;          // 20 bytes ─┐
+    uint96 deadline;        // 12 bytes ─┘ Slot 2
+    address recipient;      // 20 bytes ─┐
+    uint96 maxFee;          // 12 bytes ─┘ Slot 3
+    uint256 kTokenAmount;   // 32 bytes    Slot 4
 }
 
+// Packed into 4 slots (128 bytes)
 struct UnstakeRequest {
-    address user;
-    uint48 nonce;
-    uint48 deadline;
-    address vault;
-    uint48 maxFee;
-    uint48 stkTokenAmount;
-    address recipient;
+    address user;           // 20 bytes ─┐
+    uint96 nonce;           // 12 bytes ─┘ Slot 1
+    address vault;          // 20 bytes ─┐
+    uint96 deadline;        // 12 bytes ─┘ Slot 2
+    address recipient;      // 20 bytes ─┐
+    uint96 maxFee;          // 12 bytes ─┘ Slot 3
+    uint256 stkTokenAmount; // 32 bytes    Slot 4
 }
 
+// Packed into 4 slots (128 bytes)
 struct ClaimRequest {
-    address user;
-    uint48 nonce;
-    uint48 deadline;
-    address vault;
-    uint48 maxFee;
-    bytes32 requestId;      // 32 bytes (from vault)
+    address user;           // 20 bytes ─┐
+    uint96 nonce;           // 12 bytes ─┘ Slot 1
+    address vault;          // 20 bytes ─┐
+    uint96 deadline;        // 12 bytes ─┘ Slot 2
+    uint96 maxFee;          // 12 bytes    Slot 3 (20 bytes padding)
+    bytes32 requestId;      // 32 bytes    Slot 4
 }
 ```
 
@@ -110,8 +113,8 @@ For EIP-2612 gasless approvals:
 
 ```solidity
 struct PermitSignature {
-    uint48 value;           // Amount to approve
-    uint48 deadline;        // Permit expiration
+    uint256 value;          // Amount to approve
+    uint256 deadline;       // Permit expiration
     uint8 v;                // Signature v
     bytes32 r;              // Signature r
     bytes32 s;              // Signature s
@@ -199,7 +202,7 @@ User                    Executor                 Paymaster              Vault
 
 ## Gas Optimizations
 
-1. **Packed Structs**: Using uint48 reduces calldata costs
+1. **Packed Structs**: Fields ordered for optimal slot packing (address+uint96 pairs)
 2. **Unchecked Arithmetic**: Safe unchecked blocks for nonce increments
 3. **Solady Libraries**: Gas-optimized EIP712, SafeTransferLib
 4. **Zero-Fee Optimization**: Skip fee transfer when fee = 0

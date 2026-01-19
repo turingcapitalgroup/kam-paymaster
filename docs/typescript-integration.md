@@ -16,34 +16,34 @@ yarn add viem
 const STAKE_REQUEST_TYPES = {
   StakeRequest: [
     { name: "user", type: "address" },
-    { name: "nonce", type: "uint48" },
-    { name: "deadline", type: "uint48" },
+    { name: "nonce", type: "uint96" },
     { name: "vault", type: "address" },
-    { name: "maxFee", type: "uint48" },
-    { name: "kTokenAmount", type: "uint48" },
-    { name: "recipient", type: "address" }
+    { name: "deadline", type: "uint96" },
+    { name: "recipient", type: "address" },
+    { name: "maxFee", type: "uint96" },
+    { name: "kTokenAmount", type: "uint256" }
   ]
 } as const;
 
 const UNSTAKE_REQUEST_TYPES = {
   UnstakeRequest: [
     { name: "user", type: "address" },
-    { name: "nonce", type: "uint48" },
-    { name: "deadline", type: "uint48" },
+    { name: "nonce", type: "uint96" },
     { name: "vault", type: "address" },
-    { name: "maxFee", type: "uint48" },
-    { name: "stkTokenAmount", type: "uint48" },
-    { name: "recipient", type: "address" }
+    { name: "deadline", type: "uint96" },
+    { name: "recipient", type: "address" },
+    { name: "maxFee", type: "uint96" },
+    { name: "stkTokenAmount", type: "uint256" }
   ]
 } as const;
 
 const CLAIM_REQUEST_TYPES = {
   ClaimRequest: [
     { name: "user", type: "address" },
-    { name: "nonce", type: "uint48" },
-    { name: "deadline", type: "uint48" },
+    { name: "nonce", type: "uint96" },
     { name: "vault", type: "address" },
-    { name: "maxFee", type: "uint48" },
+    { name: "deadline", type: "uint96" },
+    { name: "maxFee", type: "uint96" },
     { name: "requestId", type: "bytes32" }
   ]
 } as const;
@@ -79,20 +79,20 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
-          { name: "kTokenAmount", type: "uint48" },
-          { name: "recipient", type: "address" }
+          { name: "deadline", type: "uint96" },
+          { name: "recipient", type: "address" },
+          { name: "maxFee", type: "uint96" },
+          { name: "kTokenAmount", type: "uint256" }
         ]
       },
       {
         name: "permitForForwarder",
         type: "tuple",
         components: [
-          { name: "value", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "value", type: "uint256" },
+          { name: "deadline", type: "uint256" },
           { name: "v", type: "uint8" },
           { name: "r", type: "bytes32" },
           { name: "s", type: "bytes32" }
@@ -102,15 +102,15 @@ const PAYMASTER_ABI = [
         name: "permitForVault",
         type: "tuple",
         components: [
-          { name: "value", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "value", type: "uint256" },
+          { name: "deadline", type: "uint256" },
           { name: "v", type: "uint8" },
           { name: "r", type: "bytes32" },
           { name: "s", type: "bytes32" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [{ type: "bytes32" }],
     stateMutability: "nonpayable"
@@ -124,16 +124,16 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
-          { name: "kTokenAmount", type: "uint48" },
-          { name: "recipient", type: "address" }
+          { name: "deadline", type: "uint96" },
+          { name: "recipient", type: "address" },
+          { name: "maxFee", type: "uint96" },
+          { name: "kTokenAmount", type: "uint256" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [{ type: "bytes32" }],
     stateMutability: "nonpayable"
@@ -147,27 +147,27 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
-          { name: "stkTokenAmount", type: "uint48" },
-          { name: "recipient", type: "address" }
+          { name: "deadline", type: "uint96" },
+          { name: "recipient", type: "address" },
+          { name: "maxFee", type: "uint96" },
+          { name: "stkTokenAmount", type: "uint256" }
         ]
       },
       {
         name: "permitSig",
         type: "tuple",
         components: [
-          { name: "value", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "value", type: "uint256" },
+          { name: "deadline", type: "uint256" },
           { name: "v", type: "uint8" },
           { name: "r", type: "bytes32" },
           { name: "s", type: "bytes32" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [{ type: "bytes32" }],
     stateMutability: "nonpayable"
@@ -181,16 +181,16 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
-          { name: "stkTokenAmount", type: "uint48" },
-          { name: "recipient", type: "address" }
+          { name: "deadline", type: "uint96" },
+          { name: "recipient", type: "address" },
+          { name: "maxFee", type: "uint96" },
+          { name: "stkTokenAmount", type: "uint256" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [{ type: "bytes32" }],
     stateMutability: "nonpayable"
@@ -204,10 +204,10 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
+          { name: "deadline", type: "uint96" },
+          { name: "maxFee", type: "uint96" },
           { name: "requestId", type: "bytes32" }
         ]
       },
@@ -215,15 +215,15 @@ const PAYMASTER_ABI = [
         name: "permitSig",
         type: "tuple",
         components: [
-          { name: "value", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "value", type: "uint256" },
+          { name: "deadline", type: "uint256" },
           { name: "v", type: "uint8" },
           { name: "r", type: "bytes32" },
           { name: "s", type: "bytes32" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [],
     stateMutability: "nonpayable"
@@ -237,15 +237,15 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
+          { name: "deadline", type: "uint96" },
+          { name: "maxFee", type: "uint96" },
           { name: "requestId", type: "bytes32" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [],
     stateMutability: "nonpayable"
@@ -259,10 +259,10 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
+          { name: "deadline", type: "uint96" },
+          { name: "maxFee", type: "uint96" },
           { name: "requestId", type: "bytes32" }
         ]
       },
@@ -270,15 +270,15 @@ const PAYMASTER_ABI = [
         name: "permitSig",
         type: "tuple",
         components: [
-          { name: "value", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "value", type: "uint256" },
+          { name: "deadline", type: "uint256" },
           { name: "v", type: "uint8" },
           { name: "r", type: "bytes32" },
           { name: "s", type: "bytes32" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [],
     stateMutability: "nonpayable"
@@ -292,15 +292,15 @@ const PAYMASTER_ABI = [
         type: "tuple",
         components: [
           { name: "user", type: "address" },
-          { name: "nonce", type: "uint48" },
-          { name: "deadline", type: "uint48" },
+          { name: "nonce", type: "uint96" },
           { name: "vault", type: "address" },
-          { name: "maxFee", type: "uint48" },
+          { name: "deadline", type: "uint96" },
+          { name: "maxFee", type: "uint96" },
           { name: "requestId", type: "bytes32" }
         ]
       },
       { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint48" }
+      { name: "fee", type: "uint96" }
     ],
     outputs: [],
     stateMutability: "nonpayable"
@@ -565,11 +565,11 @@ async function prepareGaslessStake(
   const stakeRequest = {
     user,
     nonce: paymasterNonce,
-    deadline,
     vault: config.vaultAddress,
+    deadline,
+    recipient: user,
     maxFee: config.maxFee,
-    kTokenAmount: config.stakeAmount,
-    recipient: user
+    kTokenAmount: config.stakeAmount
   };
 
   // User signs permit for paymaster (MetaMask popup #1)
@@ -645,11 +645,11 @@ async function prepareGaslessUnstake(
   const unstakeRequest = {
     user,
     nonce: paymasterNonce,
-    deadline,
     vault: config.vaultAddress,
+    deadline,
+    recipient: user,
     maxFee: config.maxFee,
-    stkTokenAmount: config.unstakeAmount,
-    recipient: user
+    stkTokenAmount: config.unstakeAmount
   };
 
   // User signs permit for paymaster on stkToken (MetaMask popup #1)
@@ -710,8 +710,8 @@ async function prepareGaslessClaim(
   const claimRequest = {
     user,
     nonce: paymasterNonce,
-    deadline,
     vault: config.vaultAddress,
+    deadline,
     maxFee: config.maxFee,
     requestId: config.requestId
   };
@@ -1120,28 +1120,28 @@ async function executeWithErrorHandling<T>(fn: () => Promise<T>): Promise<T> {
 interface StakeRequest {
   user: `0x${string}`;
   nonce: bigint;
-  deadline: bigint;
   vault: `0x${string}`;
+  deadline: bigint;
+  recipient: `0x${string}`;
   maxFee: bigint;
   kTokenAmount: bigint;
-  recipient: `0x${string}`;
 }
 
 interface UnstakeRequest {
   user: `0x${string}`;
   nonce: bigint;
-  deadline: bigint;
   vault: `0x${string}`;
+  deadline: bigint;
+  recipient: `0x${string}`;
   maxFee: bigint;
   stkTokenAmount: bigint;
-  recipient: `0x${string}`;
 }
 
 interface ClaimRequest {
   user: `0x${string}`;
   nonce: bigint;
-  deadline: bigint;
   vault: `0x${string}`;
+  deadline: bigint;
   maxFee: bigint;
   requestId: `0x${string}`;
 }
