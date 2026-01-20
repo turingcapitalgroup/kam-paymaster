@@ -26,6 +26,7 @@ abstract contract DeploymentManager is Script {
     }
 
     struct RoleAddresses {
+        address deployer;
         address owner;
         address treasury;
         address executor;
@@ -78,6 +79,7 @@ abstract contract DeploymentManager is Script {
         config.chainId = json.readUint(".chainId");
 
         // Parse role addresses
+        config.roles.deployer = json.readAddress(".roles.deployer");
         config.roles.owner = json.readAddress(".roles.owner");
         config.roles.treasury = json.readAddress(".roles.treasury");
         config.roles.executor = json.readAddress(".roles.executor");
@@ -146,6 +148,7 @@ abstract contract DeploymentManager is Script {
     }
 
     function validateConfig(NetworkConfig memory config) internal pure {
+        require(config.roles.deployer != address(0), "Missing deployer address");
         require(config.roles.owner != address(0), "Missing owner address");
         require(config.roles.treasury != address(0), "Missing treasury address");
         require(config.roles.executor != address(0), "Missing executor address");
@@ -157,6 +160,7 @@ abstract contract DeploymentManager is Script {
         console.log("=== DEPLOYMENT CONFIGURATION ===");
         console.log("Network:", config.network);
         console.log("Chain ID:", config.chainId);
+        console.log("Deployer:", config.roles.deployer);
         console.log("Owner:", config.roles.owner);
         console.log("Treasury:", config.roles.treasury);
         console.log("Executor:", config.roles.executor);
@@ -195,6 +199,7 @@ abstract contract DeploymentManager is Script {
         if (!verbose) return;
 
         console.log("--- ROLE ADDRESSES ---");
+        console.log("Deployer:         ", config.roles.deployer);
         console.log("Owner:            ", config.roles.owner);
         console.log("Treasury:         ", config.roles.treasury);
         console.log("Executor:         ", config.roles.executor);

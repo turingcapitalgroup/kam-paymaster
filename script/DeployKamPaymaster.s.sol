@@ -24,10 +24,10 @@ contract DeployKamPaymasterScript is Script, DeploymentManager {
         // Log script header and configuration
         logScriptHeader("DeployKamPaymaster");
         logRoles(config);
-        logBroadcaster(config.roles.owner);
+        logBroadcaster(config.roles.deployer);
         logExecutionStart();
 
-        vm.startBroadcast(config.roles.owner);
+        vm.startBroadcast(config.roles.deployer);
 
         // Deploy KamPaymaster with registry from config
         KamPaymaster paymaster = new KamPaymaster(config.roles.owner, config.roles.treasury, config.contracts.registry);

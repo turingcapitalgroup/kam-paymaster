@@ -33,7 +33,7 @@ help:
 # Network-specific deployments
 deploy-mainnet:
 	@echo "Deploying to MAINNET..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_MAINNET} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --slow
+	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_MAINNET} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --verify --etherscan-api-key ${ETHERSCAN_MAINNET_KEY} --slow
 	@$(MAKE) format-output
 
 deploy-mainnet-dry-run:
@@ -42,7 +42,7 @@ deploy-mainnet-dry-run:
 
 deploy-sepolia:
 	@echo "Deploying to SEPOLIA..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_SEPOLIA} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --slow
+	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_SEPOLIA} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --verify --etherscan-api-key ${ETHERSCAN_SEPOLIA_KEY} --slow
 	@$(MAKE) format-output
 
 deploy-sepolia-dry-run:
@@ -65,8 +65,19 @@ verify-mainnet:
 		echo "No mainnet deployment found"; \
 		exit 1; \
 	fi
+	@if [ ! -f "deployments/config/mainnet.json" ]; then \
+		echo "No mainnet config found"; \
+		exit 1; \
+	fi
 	@echo "Verifying KamPaymaster..."
-	@forge verify-contract $$(jq -r '.contracts.kamPaymaster' deployments/output/mainnet/addresses.json) src/KamPaymaster.sol:KamPaymaster --chain-id 1 --etherscan-api-key ${ETHERSCAN_MAINNET_KEY} --watch || true
+	@forge verify-contract $$(jq -r '.contracts.kamPaymaster' deployments/output/mainnet/addresses.json) src/KamPaymaster.sol:KamPaymaster \
+		--chain-id 1 \
+		--etherscan-api-key ${ETHERSCAN_MAINNET_KEY} \
+		--constructor-args $$(cast abi-encode "constructor(address,address,address)" \
+			$$(jq -r '.roles.owner' deployments/config/mainnet.json) \
+			$$(jq -r '.roles.treasury' deployments/config/mainnet.json) \
+			$$(jq -r '.contracts.registry' deployments/config/mainnet.json)) \
+		--watch || true
 	@echo "Mainnet verification complete!"
 
 # Etherscan verification (sepolia)
@@ -76,8 +87,19 @@ verify-sepolia:
 		echo "No sepolia deployment found"; \
 		exit 1; \
 	fi
+	@if [ ! -f "deployments/config/sepolia.json" ]; then \
+		echo "No sepolia config found"; \
+		exit 1; \
+	fi
 	@echo "Verifying KamPaymaster..."
-	@forge verify-contract $$(jq -r '.contracts.kamPaymaster' deployments/output/sepolia/addresses.json) src/KamPaymaster.sol:KamPaymaster --chain-id 11155111 --etherscan-api-key ${ETHERSCAN_SEPOLIA_KEY} --watch || true
+	@forge verify-contract $$(jq -r '.contracts.kamPaymaster' deployments/output/sepolia/addresses.json) src/KamPaymaster.sol:KamPaymaster \
+		--chain-id 11155111 \
+		--etherscan-api-key ${ETHERSCAN_SEPOLIA_KEY} \
+		--constructor-args $$(cast abi-encode "constructor(address,address,address)" \
+			$$(jq -r '.roles.owner' deployments/config/sepolia.json) \
+			$$(jq -r '.roles.treasury' deployments/config/sepolia.json) \
+			$$(jq -r '.contracts.registry' deployments/config/sepolia.json)) \
+		--watch || true
 	@echo "Sepolia verification complete!"
 
 # Format JSON output files
