@@ -51,12 +51,12 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
 
     /// @dev EIP-712 typehash for StakeWithAutoclaimRequest
     bytes32 public constant STAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH = keccak256(
-        "StakeWithAutoclaimRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 kTokenAmount,uint96 claimFee)"
+        "StakeWithAutoclaimRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 kTokenAmount)"
     );
 
     /// @dev EIP-712 typehash for UnstakeWithAutoclaimRequest
     bytes32 public constant UNSTAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH = keccak256(
-        "UnstakeWithAutoclaimRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 stkTokenAmount,uint96 claimFee)"
+        "UnstakeWithAutoclaimRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 stkTokenAmount)"
     );
 
     /*//////////////////////////////////////////////////////////////
@@ -350,6 +350,109 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         }
     }
 
+    /// @inheritdoc IKamPaymaster
+    function executeClaimStakedSharesWithPermitBatch(
+        ClaimRequest[] calldata requests,
+        PermitSignature[] calldata permitSigs,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+    {
+        uint256 len = requests.length;
+        if (len != permitSigs.length || len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        for (uint256 i; i < len;) {
+            address stkToken = requests[i].vault;
+
+            if (fees[i] > 0) {
+                _executePermit(stkToken, requests[i].user, address(this), permitSigs[i]);
+            }
+
+            _executeClaimStakedShares(requests[i], requestSigs[i], fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeClaimUnstakedAssetsWithPermitBatch(
+        ClaimRequest[] calldata requests,
+        PermitSignature[] calldata permitSigs,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+    {
+        uint256 len = requests.length;
+        if (len != permitSigs.length || len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        for (uint256 i; i < len;) {
+            address kToken = _getAsset(requests[i].vault);
+
+            if (fees[i] > 0) {
+                _executePermit(kToken, requests[i].user, address(this), permitSigs[i]);
+            }
+
+            _executeClaimUnstakedAssets(requests[i], requestSigs[i], kToken, fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeClaimStakedSharesBatch(
+        ClaimRequest[] calldata requests,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+    {
+        uint256 len = requests.length;
+        if (len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        for (uint256 i; i < len;) {
+            _executeClaimStakedShares(requests[i], requestSigs[i], fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeClaimUnstakedAssetsBatch(
+        ClaimRequest[] calldata requests,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+    {
+        uint256 len = requests.length;
+        if (len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        for (uint256 i; i < len;) {
+            address kToken = _getAsset(requests[i].vault);
+            _executeClaimUnstakedAssets(requests[i], requestSigs[i], kToken, fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
     /*//////////////////////////////////////////////////////////////
                           AUTOCLAIM FUNCTIONS
     //////////////////////////////////////////////////////////////*/
@@ -419,6 +522,113 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     }
 
     /// @inheritdoc IKamPaymaster
+    function executeRequestStakeWithAutoclaimWithPermitBatch(
+        StakeWithAutoclaimRequest[] calldata requests,
+        PermitSignature[] calldata permits,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+        returns (bytes32[] memory requestIds)
+    {
+        uint256 len = requests.length;
+        if (len != permits.length || len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        requestIds = new bytes32[](len);
+
+        for (uint256 i; i < len;) {
+            address kToken = _getAsset(requests[i].vault);
+            _executePermit(kToken, requests[i].user, address(this), permits[i]);
+            requestIds[i] = _executeStakeWithAutoclaim(requests[i], requestSigs[i], kToken, fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeRequestUnstakeWithAutoclaimWithPermitBatch(
+        UnstakeWithAutoclaimRequest[] calldata requests,
+        PermitSignature[] calldata permits,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+        returns (bytes32[] memory requestIds)
+    {
+        uint256 len = requests.length;
+        if (len != permits.length || len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        requestIds = new bytes32[](len);
+
+        for (uint256 i; i < len;) {
+            address stkToken = requests[i].vault;
+            _executePermit(stkToken, requests[i].user, address(this), permits[i]);
+            requestIds[i] = _executeUnstakeWithAutoclaim(requests[i], requestSigs[i], fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeRequestStakeWithAutoclaimBatch(
+        StakeWithAutoclaimRequest[] calldata requests,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+        returns (bytes32[] memory requestIds)
+    {
+        uint256 len = requests.length;
+        if (len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        requestIds = new bytes32[](len);
+
+        for (uint256 i; i < len;) {
+            address kToken = _getAsset(requests[i].vault);
+            requestIds[i] = _executeStakeWithAutoclaim(requests[i], requestSigs[i], kToken, fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeRequestUnstakeWithAutoclaimBatch(
+        UnstakeWithAutoclaimRequest[] calldata requests,
+        bytes[] calldata requestSigs,
+        uint96[] calldata fees
+    )
+        external
+        onlyTrustedExecutor
+        returns (bytes32[] memory requestIds)
+    {
+        uint256 len = requests.length;
+        if (len != requestSigs.length || len != fees.length) {
+            revert ArrayLengthMismatch();
+        }
+
+        requestIds = new bytes32[](len);
+
+        for (uint256 i; i < len;) {
+            requestIds[i] = _executeUnstakeWithAutoclaim(requests[i], requestSigs[i], fees[i]);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
     function executeAutoclaimStakedShares(bytes32 requestId) external onlyTrustedExecutor {
         AutoclaimAuth storage auth = _autoclaimRegistry[requestId];
 
@@ -470,6 +680,80 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
 
         emit AutoclaimExecuted(user, auth.vault, requestId, false);
         emit GaslessUnstakedAssetsClaimed(user, auth.vault, requestId, 0);
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeAutoclaimStakedSharesBatch(bytes32[] calldata requestIds) external onlyTrustedExecutor {
+        uint256 len = requestIds.length;
+        for (uint256 i; i < len;) {
+            bytes32 requestId = requestIds[i];
+            AutoclaimAuth storage auth = _autoclaimRegistry[requestId];
+
+            // Skip invalid or already executed requests
+            if (auth.vault == address(0) || !auth.isStake || auth.executed || !registry.isVault(auth.vault)) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+
+            auth.executed = true;
+
+            // Fetch user from vault's stake request
+            BaseVaultTypes.StakeRequest memory stakeRequest = IVaultReader(auth.vault).getStakeRequest(requestId);
+            address user = stakeRequest.user;
+
+            // Forward claim to vault (ERC2771 pattern)
+            bytes memory forwardData =
+                abi.encodePacked(abi.encodeCall(IVaultClaim.claimStakedShares, (requestId)), user);
+
+            (bool success,) = auth.vault.call(forwardData);
+            if (success) {
+                emit AutoclaimExecuted(user, auth.vault, requestId, true);
+                emit GaslessStakedSharesClaimed(user, auth.vault, requestId, 0);
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    /// @inheritdoc IKamPaymaster
+    function executeAutoclaimUnstakedAssetsBatch(bytes32[] calldata requestIds) external onlyTrustedExecutor {
+        uint256 len = requestIds.length;
+        for (uint256 i; i < len;) {
+            bytes32 requestId = requestIds[i];
+            AutoclaimAuth storage auth = _autoclaimRegistry[requestId];
+
+            // Skip invalid or already executed requests
+            if (auth.vault == address(0) || auth.isStake || auth.executed || !registry.isVault(auth.vault)) {
+                unchecked {
+                    ++i;
+                }
+                continue;
+            }
+
+            auth.executed = true;
+
+            // Fetch user from vault's unstake request
+            BaseVaultTypes.UnstakeRequest memory unstakeRequest = IVaultReader(auth.vault).getUnstakeRequest(requestId);
+            address user = unstakeRequest.user;
+
+            // Forward claim to vault (ERC2771 pattern)
+            bytes memory forwardData =
+                abi.encodePacked(abi.encodeCall(IVaultClaim.claimUnstakedAssets, (requestId)), user);
+
+            (bool success,) = auth.vault.call(forwardData);
+            if (success) {
+                emit AutoclaimExecuted(user, auth.vault, requestId, false);
+                emit GaslessUnstakedAssetsClaimed(user, auth.vault, requestId, 0);
+            }
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -616,7 +900,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         }
 
         // Approve vault to pull netAmount
-        kToken.safeApprove(request.vault, netAmount);
+        kToken.safeApproveWithRetry(request.vault, netAmount);
 
         // Forward requestStake call with paymaster as msg.sender (ERC2771 pattern)
         bytes memory forwardData = abi.encodePacked(
@@ -671,9 +955,9 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         stkToken.safeApprove(request.vault, netAmount);
 
         // Forward requestUnstake call (ERC2771 pattern)
-        // requestUnstake uses _msgSender() as owner, so we append request.user
+        // requestUnstake uses _msgSender() as owner
         bytes memory forwardData =
-            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.recipient, netAmount)), request.user);
+            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.recipient, netAmount)), address(this));
 
         (bool success, bytes memory returnData) = request.vault.call(forwardData);
         if (!success) revert UnstakeRequestFailed();
@@ -741,7 +1025,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
     }
 
     /// @dev Execute stake with autoclaim logic
-    /// @dev User pays requestFee + claimFee upfront. kTokenAmount = requestFee + claimFee + netStakeAmount
+    /// @dev User pays fee upfront (covers both request + claim). kTokenAmount = fee + netStakeAmount
     function _executeStakeWithAutoclaim(
         StakeWithAutoclaimRequest calldata request,
         bytes calldata requestSig,
@@ -756,13 +1040,11 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         // Validate vault is registered in the protocol
         if (!registry.isVault(request.vault)) revert VaultNotRegistered();
 
-        // Total fees = requestFee + claimFee
-        uint256 totalFees = uint256(fee) + uint256(request.claimFee);
-        if (request.kTokenAmount <= totalFees) revert InsufficientAmountForFee();
+        if (request.kTokenAmount <= fee) revert InsufficientAmountForFee();
 
         uint256 netAmount;
         unchecked {
-            netAmount = request.kTokenAmount - totalFees;
+            netAmount = request.kTokenAmount - fee;
         }
 
         unchecked {
@@ -772,9 +1054,9 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         // Pull full amount from user to paymaster
         kToken.safeTransferFrom(request.user, address(this), request.kTokenAmount);
 
-        // Send total fees (requestFee + claimFee) to treasury
-        if (totalFees > 0) {
-            kToken.safeTransfer(treasury, totalFees);
+        // Send fee to treasury
+        if (fee > 0) {
+            kToken.safeTransfer(treasury, fee);
         }
 
         // Approve vault to pull netAmount
@@ -794,11 +1076,11 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         _autoclaimRegistry[requestId] = AutoclaimAuth({ vault: request.vault, isStake: true, executed: false });
 
         emit GaslessStakeRequested(request.user, request.vault, request.kTokenAmount, fee, requestId);
-        emit AutoclaimRegistered(request.user, request.vault, requestId, true, request.claimFee);
+        emit AutoclaimRegistered(request.user, request.vault, requestId, true);
     }
 
     /// @dev Execute unstake with autoclaim logic
-    /// @dev User pays requestFee + claimFee upfront. stkTokenAmount = requestFee + claimFee + netUnstakeAmount
+    /// @dev User pays fee upfront (covers both request + claim). stkTokenAmount = fee + netUnstakeAmount
     function _executeUnstakeWithAutoclaim(
         UnstakeWithAutoclaimRequest calldata request,
         bytes calldata requestSig,
@@ -814,13 +1096,11 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
 
         address stkToken = request.vault;
 
-        // Total fees = requestFee + claimFee
-        uint256 totalFees = uint256(fee) + uint256(request.claimFee);
-        if (request.stkTokenAmount <= totalFees) revert InsufficientAmountForFee();
+        if (request.stkTokenAmount <= fee) revert InsufficientAmountForFee();
 
         uint256 netAmount;
         unchecked {
-            netAmount = request.stkTokenAmount - totalFees;
+            netAmount = request.stkTokenAmount - fee;
         }
 
         unchecked {
@@ -830,9 +1110,9 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         // Pull full amount from user to paymaster
         stkToken.safeTransferFrom(request.user, address(this), request.stkTokenAmount);
 
-        // Send total fees (requestFee + claimFee) to treasury
-        if (totalFees > 0) {
-            stkToken.safeTransfer(treasury, totalFees);
+        // Send fee to treasury
+        if (fee > 0) {
+            stkToken.safeTransfer(treasury, fee);
         }
 
         // Approve vault to pull netAmount
@@ -852,7 +1132,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         _autoclaimRegistry[requestId] = AutoclaimAuth({ vault: request.vault, isStake: false, executed: false });
 
         emit GaslessUnstakeRequested(request.user, request.vault, request.stkTokenAmount, fee, requestId);
-        emit AutoclaimRegistered(request.user, request.vault, requestId, false, request.claimFee);
+        emit AutoclaimRegistered(request.user, request.vault, requestId, false);
     }
 
     /// @dev Validate a stake request
@@ -948,8 +1228,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
                 request.deadline,
                 request.recipient,
                 request.maxFee,
-                request.kTokenAmount,
-                request.claimFee
+                request.kTokenAmount
             )
         );
 
@@ -980,8 +1259,7 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
                 request.deadline,
                 request.recipient,
                 request.maxFee,
-                request.stkTokenAmount,
-                request.claimFee
+                request.stkTokenAmount
             )
         );
 
