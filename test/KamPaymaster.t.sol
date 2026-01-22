@@ -137,14 +137,12 @@ contract MockKStakingVault is MockERC20Permit {
         return requestId;
     }
 
-    function requestUnstake(address to, uint256 amount) external payable returns (bytes32) {
-        address sender = _msgSender();
-        // ERC2771: paymaster forwards call with request.user appended, _msgSender() returns the user
+    function requestUnstake(address owner, address to, uint256 amount) external payable returns (bytes32) {
+        // ERC2771: paymaster forwards call with itself as msg.sender, owner param specifies request owner
         MockERC20Permit(address(this)).transferFrom(msg.sender, address(this), amount);
 
-        bytes32 requestId = keccak256(abi.encode(sender, to, amount, block.timestamp, ++_requestCounter));
-        unstakeRequests[requestId] =
-            UnstakeRequestData({ user: sender, stkTokenAmount: uint128(amount), recipient: to });
+        bytes32 requestId = keccak256(abi.encode(owner, to, amount, block.timestamp, ++_requestCounter));
+        unstakeRequests[requestId] = UnstakeRequestData({ user: owner, stkTokenAmount: uint128(amount), recipient: to });
         return requestId;
     }
 

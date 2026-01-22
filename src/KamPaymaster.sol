@@ -954,8 +954,9 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         stkToken.safeApprove(request.vault, netAmount);
 
         // Forward requestUnstake call (ERC2771 pattern)
-        bytes memory forwardData =
-            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.user, request.recipient, netAmount)), address(this));
+        bytes memory forwardData = abi.encodePacked(
+            abi.encodeCall(IVault.requestUnstake, (request.user, request.recipient, netAmount)), address(this)
+        );
 
         (bool success, bytes memory returnData) = request.vault.call(forwardData);
         if (!success) revert UnstakeRequestFailed();
@@ -1117,8 +1118,9 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         stkToken.safeApprove(request.vault, netAmount);
 
         // Forward requestUnstake call (ERC2771 pattern)
-        bytes memory forwardData =
-            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.user, request.recipient, netAmount)), address(this));
+        bytes memory forwardData = abi.encodePacked(
+            abi.encodeCall(IVault.requestUnstake, (request.user, request.recipient, netAmount)), address(this)
+        );
 
         (bool success, bytes memory returnData) = request.vault.call(forwardData);
         if (!success) revert UnstakeRequestFailed();
