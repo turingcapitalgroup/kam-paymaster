@@ -677,7 +677,6 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         if (!success) revert ClaimUnstakedAssetsFailed();
 
         // No fee collection - claim fee was paid upfront during request
-
         emit AutoclaimExecuted(user, auth.vault, requestId, false);
         emit GaslessUnstakedAssetsClaimed(user, auth.vault, requestId, 0);
     }
@@ -955,9 +954,8 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         stkToken.safeApprove(request.vault, netAmount);
 
         // Forward requestUnstake call (ERC2771 pattern)
-        // requestUnstake uses _msgSender() as owner
         bytes memory forwardData =
-            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.recipient, netAmount)), address(this));
+            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.user, request.recipient, netAmount)), address(this));
 
         (bool success, bytes memory returnData) = request.vault.call(forwardData);
         if (!success) revert UnstakeRequestFailed();
@@ -1119,9 +1117,8 @@ contract KamPaymaster is IKamPaymaster, EIP712, Ownable {
         stkToken.safeApprove(request.vault, netAmount);
 
         // Forward requestUnstake call (ERC2771 pattern)
-        // requestUnstake uses _msgSender() as owner, so we append request.user
         bytes memory forwardData =
-            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.recipient, netAmount)), request.user);
+            abi.encodePacked(abi.encodeCall(IVault.requestUnstake, (request.user, request.recipient, netAmount)), address(this));
 
         (bool success, bytes memory returnData) = request.vault.call(forwardData);
         if (!success) revert UnstakeRequestFailed();
