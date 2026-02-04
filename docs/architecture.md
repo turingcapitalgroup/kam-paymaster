@@ -8,7 +8,7 @@ The KamPaymaster is an ERC2771-style trusted forwarder that enables gasless inte
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              USER WALLET                                     │
+│                              USER WALLET                                    │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │  1. Sign EIP-2612 Permit(s) for token approval                      │    │
 │  │  2. Sign EIP-712 Request (Stake/Unstake/Claim)                      │    │
@@ -17,36 +17,36 @@ The KamPaymaster is an ERC2771-style trusted forwarder that enables gasless inte
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           TRUSTED EXECUTOR (Relayer)                         │
+│                           TRUSTED EXECUTOR (Relayer)                        │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  - Receives signed request + permits from user                       │    │
-│  │  - Determines actual fee (must be <= user's maxFee)                  │    │
-│  │  - Submits transaction to KamPaymaster                               │    │
-│  │  - Pays gas costs                                                    │    │
+│  │  - Receives signed request + permits from user                      │    │
+│  │  - Determines actual fee (must be <= user's maxFee)                 │    │
+│  │  - Submits transaction to KamPaymaster                              │    │
+│  │  - Pays gas costs                                                   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              KAM PAYMASTER                                   │
+│                              KAM PAYMASTER                                  │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  1. Verify caller is trusted executor                                │    │
-│  │  2. Validate EIP-712 request signature                               │    │
-│  │  3. Validate fee <= maxFee                                           │    │
-│  │  4. Execute permit(s) for token approval                             │    │
-│  │  5. Transfer fee to treasury                                         │    │
-│  │  6. Forward call to vault with user address appended                 │    │
-│  │  7. Increment user nonce                                             │    │
+│  │  1. Verify caller is trusted executor                               │    │
+│  │  2. Validate EIP-712 request signature                              │    │
+│  │  3. Validate fee <= maxFee                                          │    │
+│  │  4. Execute permit(s) for token approval                            │    │
+│  │  5. Transfer fee to treasury                                        │    │
+│  │  6. Forward call to vault with user address appended                │    │
+│  │  7. Increment user nonce                                            │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                            kStakingVault                                     │
+│                            kStakingVault                                    │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  - Receives call with user address appended to calldata              │    │
-│  │  - Extracts real user via _msgSender() (ERC2771)                     │    │
-│  │  - Executes stake/unstake/claim on behalf of user                    │    │
+│  │  - Receives call with user address appended to calldata             │    │
+│  │  - Extracts real user via _msgSender() (ERC2771)                    │    │
+│  │  - Executes stake/unstake/claim on behalf of user                   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -64,9 +64,10 @@ The main contract that handles gasless meta-transactions.
 
 **Storage:**
 ```solidity
-address public treasury;                              // Fee recipient
-mapping(address => uint256) private _nonces;          // User nonces
-mapping(address => bool) private _trustedExecutors;   // Whitelisted relayers
+address public treasury;                                        // Fee recipient
+mapping(address => uint256) private _nonces;                    // User nonces
+mapping(address => bool) private _trustedExecutors;             // Whitelisted relayers
+mapping(bytes32 => AutoclaimAuth) private _autoclaimRegistry;   // Autoclaim registrations per requestId
 ```
 
 ### Request Types
@@ -181,6 +182,53 @@ User                    Executor                 Paymaster              Vault
  │                         │<────────────────────────│                    │
 ```
 
+### Autoclaim Flow
+
+Autoclaim lets users sign once for both the request and the eventual claim. The fee is paid upfront during the request, so the executor can claim later without needing another signature or fee transfer.
+
+```
+User                    Executor                 Paymaster              Vault
+ │                         │                         │                    │
+ │ Sign Permit             │                         │                    │
+ │ Sign StakeWithAutoclaim │                         │                    │
+ │────────────────────────>│                         │                    │
+ │                         │                         │                    │
+ │                         │ executeRequestStake     │                    │
+ │                         │ WithAutoclaim(...)       │                    │
+ │                         │────────────────────────>│                    │
+ │                         │                         │                    │
+ │                         │                         │ validate + permit  │
+ │                         │                         │ transfer fee       │
+ │                         │                         │────────────>Treasury
+ │                         │                         │                    │
+ │                         │                         │ requestStake       │
+ │                         │                         │───────────────────>│
+ │                         │                         │<───────────────────│
+ │                         │                         │    requestId       │
+ │                         │                         │                    │
+ │                         │                         │ register autoclaim │
+ │                         │                         │ (requestId -> auth)│
+ │                         │<────────────────────────│                    │
+ │                         │                         │                    │
+ ═══════════════════════ settlement happens ═════════════════════════════
+ │                         │                         │                    │
+ │                         │ executeAutoclaimStaked  │                    │
+ │                         │ SharesBatch([ids])      │                    │
+ │                         │────────────────────────>│                    │
+ │                         │                         │                    │
+ │                         │                         │ claimStakedShares  │
+ │                         │                         │───────────────────>│
+ │                         │                         │<───────────────────│
+ │                         │                         │  (mints stkTokens) │
+ │                         │                         │                    │
+ │                         │                         │ mark executed      │
+ │                         │<────────────────────────│                    │
+```
+
+If a batch claim fails for one request (not yet settled, etc.), the paymaster emits `AutoclaimFailed` for that request and continues. The entry stays `executed = false` so it can be retried in the next batch.
+
+Non-batch autoclaim calls (`executeAutoclaimStakedShares`, `executeAutoclaimUnstakedAssets`) revert on failure instead, since there's no reason to silently skip a single call.
+
 ## Security Model
 
 ### Trust Assumptions
@@ -199,14 +247,16 @@ User                    Executor                 Paymaster              Vault
 | Stale requests | Deadline timestamp check |
 | Unauthorized execution | Trusted executor whitelist |
 | Permit replay | Token-level nonces |
+| Batch autoclaim bricking | `executed` only set on success; failures emit event and stay retryable |
 
 ## Gas Optimizations
 
 1. **Packed Structs**: Fields ordered for optimal slot packing (address+uint96 pairs)
 2. **Unchecked Arithmetic**: Safe unchecked blocks for nonce increments
-3. **Solady Libraries**: Gas-optimized EIP712, SafeTransferLib
+3. **Solady Libraries**: Gas-optimized EIP712, SafeTransferLib, `safeApproveWithRetry` for vault approvals
 4. **Zero-Fee Optimization**: Skip fee transfer when fee = 0
 5. **Calldata over Memory**: Use calldata for all external inputs
+6. **AutoclaimAuth Packing**: `vault + isStake + executed` fits in a single storage slot
 
 ## Integration with KAM Protocol
 

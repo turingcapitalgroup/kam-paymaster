@@ -3,7 +3,7 @@ pragma solidity 0.8.30;
 
 import { KamPaymaster } from "../src/KamPaymaster.sol";
 import { DeploymentManager } from "./utils/DeploymentManager.sol";
-import { Script, console2 } from "forge-std/Script.sol";
+import { Script } from "forge-std/Script.sol";
 
 /// @title DeployKamPaymasterScript
 /// @notice Script to deploy the KamPaymaster contract using the deployment manager pattern

@@ -11,6 +11,7 @@ The KamPaymaster contract allows users to execute staking operations without hol
 - **EIP-712 Typed Signatures**: Secure meta-transaction signing for gasless operations
 - **EIP-2612 Permit Integration**: Gasless token approvals using permit signatures
 - **maxFee Protection**: Users specify maximum acceptable fee in their signatures
+- **Autoclaim**: Users can opt-in to automatic claiming after settlement — one signature covers both the request and the claim. Fee is paid upfront so the executor can claim without further user interaction
 - **Packed Structs**: Gas-optimized calldata with optimal slot packing (address+uint96 pairs)
 - **Trusted Executors**: Permissioned relayer system for transaction execution
 - **Batch Operations**: Execute multiple requests in a single transaction
@@ -57,11 +58,17 @@ Users include a `maxFee` parameter in their signed requests. The executor specif
 | `requestUnstake` | stkToken | Request unstaking of stkTokens |
 | `claimStakedShares` | stkToken | Claim stkTokens after stake settles |
 | `claimUnstakedAssets` | kToken | Claim kTokens after unstake settles |
+| `requestStakeWithAutoclaim` | kToken | Stake + register autoclaim (fee covers both) |
+| `requestUnstakeWithAutoclaim` | stkToken | Unstake + register autoclaim (fee covers both) |
+| `autoclaimStakedShares` | — | Executor claims on user's behalf (no fee at claim time) |
+| `autoclaimUnstakedAssets` | — | Executor claims on user's behalf (no fee at claim time) |
 
 Each operation has:
 - **With Permit**: Includes EIP-2612 permit for gasless approval
 - **Without Permit**: Requires pre-approval of tokens
 - **Batch**: Execute multiple requests in one transaction
+
+Autoclaim batch operations are fault-tolerant — if a single claim in the batch fails (e.g. not yet settled), it emits `AutoclaimFailed` and moves on. The failed autoclaim stays retryable.
 
 ## Installation
 
@@ -134,6 +141,8 @@ vault.setTrustedForwarder(address(paymaster));
 | `DOMAIN_SEPARATOR()` | Get EIP-712 domain separator |
 | `isTrustedExecutor(address)` | Check if address is trusted executor |
 | `treasury()` | Get treasury address |
+| `getAutoclaimAuth(bytes32)` | Get autoclaim registration for a request ID |
+| `canAutoclaim(bytes32)` | Check if autoclaim is registered and not yet executed |
 
 ## EIP-712 Type Definitions
 
@@ -174,6 +183,21 @@ ClaimRequest(
     bytes32 requestId  // 32 bytes    Slot 4
 )
 ```
+
+### StakeWithAutoclaimRequest / UnstakeWithAutoclaimRequest
+
+Same layout as `StakeRequest` / `UnstakeRequest`. The difference is semantic — the paymaster registers an `AutoclaimAuth` entry so the executor can claim later without a user signature.
+
+### AutoclaimAuth
+```solidity
+AutoclaimAuth(
+    address vault,     // 20 bytes ─┐
+    bool isStake,      //  1 byte  ─┤ Slot 1
+    bool executed      //  1 byte  ─┘
+)
+```
+
+Stored per `requestId`. Fits in a single slot.
 
 ## Integration Example
 
@@ -224,7 +248,7 @@ await paymaster.executeRequestStakeWithPermit(
 2. **Signature Replay Protection**: Nonces prevent signature replay attacks
 3. **Deadline Enforcement**: All requests have expiration timestamps
 4. **Trusted Executors Only**: Only whitelisted addresses can execute requests
-5. **SafeTransferLib**: All token transfers use Solady's safe transfer patterns
+5. **SafeTransferLib**: Solady's safe transfer patterns; `safeApproveWithRetry` for vault approvals (handles tokens that require zeroing allowance first)
 6. **ERC2771 Forwarding**: User address securely appended to calldata
 
 ## Dependencies
