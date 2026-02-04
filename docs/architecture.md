@@ -2,7 +2,7 @@
 
 ## Overview
 
-The KamPaymaster is an ERC2771-style trusted forwarder that enables gasless interactions with KAM Protocol's kStakingVaults. Users sign meta-transactions off-chain, and trusted executors (relayers) submit them on-chain while deducting fees from the tokens being transferred.
+The kPaymaster is an ERC2771-style trusted forwarder that enables gasless interactions with KAM Protocol's kStakingVaults. Users sign meta-transactions off-chain, and trusted executors (relayers) submit them on-chain while deducting fees from the tokens being transferred.
 
 ## System Architecture
 
@@ -21,7 +21,7 @@ The KamPaymaster is an ERC2771-style trusted forwarder that enables gasless inte
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │  - Receives signed request + permits from user                      │    │
 │  │  - Determines actual fee (must be <= user's maxFee)                 │    │
-│  │  - Submits transaction to KamPaymaster                              │    │
+│  │  - Submits transaction to kPaymaster                              │    │
 │  │  - Pays gas costs                                                   │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -53,12 +53,12 @@ The KamPaymaster is an ERC2771-style trusted forwarder that enables gasless inte
 
 ## Contract Components
 
-### KamPaymaster
+### kPaymaster
 
 The main contract that handles gasless meta-transactions.
 
 **Inheritance:**
-- `IKamPaymaster` - Interface definition
+- `IkPaymaster` - Interface definition
 - `EIP712` (Solady) - EIP-712 typed data signing
 - `Ownable` (Solady) - Access control
 
@@ -263,7 +263,7 @@ Non-batch autoclaim calls (`executeAutoclaimStakedShares`, `executeAutoclaimUnst
 ### Vault Requirements
 
 The kStakingVault must:
-1. Have KamPaymaster set as trusted forwarder
+1. Have kPaymaster set as trusted forwarder
 2. Implement ERC2771 `_msgSender()` pattern
 3. Support EIP-2612 permit for its token (stkToken)
 
@@ -277,7 +277,7 @@ kTokens and stkTokens must:
 
 ```solidity
 // 1. Deploy paymaster
-KamPaymaster paymaster = new KamPaymaster(owner, treasury);
+kPaymaster paymaster = new kPaymaster(owner, treasury);
 
 // 2. Add trusted executors
 paymaster.setTrustedExecutor(relayer, true);

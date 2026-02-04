@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-/// @title IKamPaymaster
-/// @notice Interface for the KamPaymaster gasless forwarder contract
+/// @title IkPaymaster
+/// @notice Interface for the kPaymaster gasless forwarder contract
 /// @dev Enables gasless interactions with kStakingVaults using permit signatures and ERC2771 meta-transactions.
 /// Fees are passed directly by the trusted executor for simplicity and gas efficiency.
 /// Users sign a maxFee parameter to cap the fee that can be charged.
 /// Structs are tightly packed for gas optimization.
-interface IKamPaymaster {
-    /*//////////////////////////////////////////////////////////////
+interface IkPaymaster {
+    /* //////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
 
@@ -81,65 +81,68 @@ interface IKamPaymaster {
     /// @param isStake True if stake claim, false if unstake claim
     event AutoclaimFailed(address indexed vault, bytes32 indexed requestId, bool isStake);
 
-    /*//////////////////////////////////////////////////////////////
+    /* //////////////////////////////////////////////////////////////
                                 ERRORS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Thrown when an invalid signature is provided
-    error InvalidSignature();
+    error kPaymaster_InvalidSignature();
 
     /// @notice Thrown when the request deadline has expired
-    error RequestExpired();
+    error kPaymaster_RequestExpired();
 
     /// @notice Thrown when the nonce doesn't match expected value
-    error InvalidNonce();
+    error kPaymaster_InvalidNonce();
 
     /// @notice Thrown when caller is not a trusted executor
-    error NotTrustedExecutor();
+    error kPaymaster_NotTrustedExecutor();
 
     /// @notice Thrown when zero address is provided
-    error ZeroAddress();
+    error kPaymaster_ZeroAddress();
 
     /// @notice Thrown when zero amount is provided
-    error ZeroAmount();
+    error kPaymaster_ZeroAmount();
 
     /// @notice Thrown when the vault is not registered
-    error VaultNotRegistered();
+    error kPaymaster_VaultNotRegistered();
 
     /// @notice Thrown when insufficient amount for fee coverage
-    error InsufficientAmountForFee();
+    error kPaymaster_InsufficientAmountForFee();
 
     /// @notice Thrown when the permit deadline has expired
-    error PermitExpired();
+    error kPaymaster_PermitExpired();
 
     /// @notice Thrown when fee exceeds user's signed maxFee
-    error FeeExceedsMax();
+    error kPaymaster_FeeExceedsMax();
 
     /// @notice Thrown when stake request to vault fails
-    error StakeRequestFailed();
+    error kPaymaster_StakeRequestFailed();
 
     /// @notice Thrown when unstake request to vault fails
-    error UnstakeRequestFailed();
+    error kPaymaster_UnstakeRequestFailed();
 
     /// @notice Thrown when claim staked shares fails
-    error ClaimStakedSharesFailed();
+    error kPaymaster_ClaimStakedSharesFailed();
 
     /// @notice Thrown when claim unstaked assets fails
-    error ClaimUnstakedAssetsFailed();
+    error kPaymaster_ClaimUnstakedAssetsFailed();
 
     /// @notice Thrown when permit call fails
-    error PermitFailed();
+    error kPaymaster_PermitFailed();
 
     /// @notice Thrown when array lengths mismatch in batch operations
-    error ArrayLengthMismatch();
+    error kPaymaster_ArrayLengthMismatch();
 
     /// @notice Thrown when autoclaim is not registered for the request
-    error AutoclaimNotRegistered();
+    error kPaymaster_AutoclaimNotRegistered();
 
     /// @notice Thrown when autoclaim has already been executed
-    error AutoclaimAlreadyExecuted();
+    error kPaymaster_AutoclaimAlreadyExecuted();
 
-    /*//////////////////////////////////////////////////////////////
+    /// @notice Thrown when batch size exceeds maximum or is zero
+    error kPaymaster_BatchTooLarge();
+
+    /* //////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/
 
@@ -285,7 +288,7 @@ interface IKamPaymaster {
         bool executed;
     }
 
-    /*//////////////////////////////////////////////////////////////
+    /* //////////////////////////////////////////////////////////////
                     EXTERNAL FUNCTIONS (WITH PERMIT)
     //////////////////////////////////////////////////////////////*/
 
@@ -353,11 +356,12 @@ interface IKamPaymaster {
     )
         external;
 
-    /*//////////////////////////////////////////////////////////////
+    /* //////////////////////////////////////////////////////////////
                   EXTERNAL FUNCTIONS (WITHOUT PERMIT)
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Execute a gasless stake request (assumes allowance already set)
+    /// @dev Same as permit variant but assumes kToken allowance is already set
     /// @param request The stake request parameters
     /// @param requestSig The signature for the meta-transaction
     /// @param fee The fee amount in kTokens (must be <= request.maxFee)
@@ -371,6 +375,7 @@ interface IKamPaymaster {
         returns (bytes32 requestId);
 
     /// @notice Execute a gasless unstake request (assumes allowance already set)
+    /// @dev Same as permit variant but assumes stkToken allowance is already set
     /// @param request The unstake request parameters
     /// @param requestSig The signature for the meta-transaction
     /// @param fee The fee amount in stkTokens (must be <= request.maxFee)
@@ -384,22 +389,25 @@ interface IKamPaymaster {
         returns (bytes32 requestId);
 
     /// @notice Execute a gasless claim of staked shares (assumes allowance already set for fee)
+    /// @dev Same as permit variant but assumes stkToken allowance for fee is already set
     /// @param request The claim request parameters
     /// @param requestSig The signature for the meta-transaction
     /// @param fee The fee amount in stkTokens (must be <= request.maxFee)
     function executeClaimStakedShares(ClaimRequest calldata request, bytes calldata requestSig, uint96 fee) external;
 
     /// @notice Execute a gasless claim of unstaked assets (assumes allowance already set for fee)
+    /// @dev Same as permit variant but assumes kToken allowance for fee is already set
     /// @param request The claim request parameters
     /// @param requestSig The signature for the meta-transaction
     /// @param fee The fee amount in kTokens (must be <= request.maxFee)
     function executeClaimUnstakedAssets(ClaimRequest calldata request, bytes calldata requestSig, uint96 fee) external;
 
-    /*//////////////////////////////////////////////////////////////
+    /* //////////////////////////////////////////////////////////////
                           BATCH FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Execute multiple gasless stake requests in a single transaction
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of stake request parameters
     /// @param permits Array of permit signatures for paymaster (for full amounts)
     /// @param requestSigs Array of signatures for the meta-transactions
@@ -415,6 +423,7 @@ interface IKamPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute multiple gasless unstake requests in a single transaction
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of unstake request parameters
     /// @param permits Array of permit signatures for paymaster (for full amounts)
     /// @param requestSigs Array of signatures for the meta-transactions
@@ -430,6 +439,7 @@ interface IKamPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute multiple gasless stake requests without permits
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of stake request parameters
     /// @param requestSigs Array of signatures for the meta-transactions
     /// @param fees Array of fee amounts
@@ -443,6 +453,7 @@ interface IKamPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute multiple gasless unstake requests without permits
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of unstake request parameters
     /// @param requestSigs Array of signatures for the meta-transactions
     /// @param fees Array of fee amounts
@@ -456,6 +467,7 @@ interface IKamPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute multiple gasless claims of staked shares with permits
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of claim request parameters
     /// @param permitSigs Array of permit signatures for stkToken approval (for fees)
     /// @param requestSigs Array of signatures for the meta-transactions
@@ -469,6 +481,7 @@ interface IKamPaymaster {
         external;
 
     /// @notice Execute multiple gasless claims of unstaked assets with permits
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of claim request parameters
     /// @param permitSigs Array of permit signatures for kToken approval (for fees)
     /// @param requestSigs Array of signatures for the meta-transactions
@@ -482,6 +495,7 @@ interface IKamPaymaster {
         external;
 
     /// @notice Execute multiple gasless claims of staked shares without permits
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of claim request parameters
     /// @param requestSigs Array of signatures for the meta-transactions
     /// @param fees Array of fee amounts
@@ -493,6 +507,7 @@ interface IKamPaymaster {
         external;
 
     /// @notice Execute multiple gasless claims of unstaked assets without permits
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of claim request parameters
     /// @param requestSigs Array of signatures for the meta-transactions
     /// @param fees Array of fee amounts
@@ -503,7 +518,7 @@ interface IKamPaymaster {
     )
         external;
 
-    /*//////////////////////////////////////////////////////////////
+    /* //////////////////////////////////////////////////////////////
                           AUTOCLAIM FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -570,6 +585,7 @@ interface IKamPaymaster {
         returns (bytes32 requestId);
 
     /// @notice Execute multiple gasless stake requests with autoclaim (with permits)
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of stake with autoclaim request parameters
     /// @param permits Array of permit signatures for kToken approval to paymaster
     /// @param requestSigs Array of signatures for the meta-transactions
@@ -585,6 +601,7 @@ interface IKamPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute multiple gasless unstake requests with autoclaim (with permits)
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of unstake with autoclaim request parameters
     /// @param permits Array of permit signatures for stkToken approval to paymaster
     /// @param requestSigs Array of signatures for the meta-transactions
@@ -600,6 +617,7 @@ interface IKamPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute multiple gasless stake requests with autoclaim (without permits)
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of stake with autoclaim request parameters
     /// @param requestSigs Array of signatures for the meta-transactions
     /// @param fees Array of fee amounts
@@ -613,6 +631,7 @@ interface IKamPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute multiple gasless unstake requests with autoclaim (without permits)
+    /// @dev Processes each request sequentially in a single transaction
     /// @param requests Array of unstake with autoclaim request parameters
     /// @param requestSigs Array of signatures for the meta-transactions
     /// @param fees Array of fee amounts
@@ -647,35 +666,60 @@ interface IKamPaymaster {
     /// @param requestIds Array of unstake request IDs to claim
     function executeAutoclaimUnstakedAssetsBatch(bytes32[] calldata requestIds) external;
 
-    /*//////////////////////////////////////////////////////////////
+    /* //////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Get the current nonce for a user
+    /// @dev Returns the nonce from the internal mapping
     /// @param user The user address
     /// @return The current nonce
     function nonces(address user) external view returns (uint256);
 
     /// @notice Get the EIP-712 domain separator
+    /// @dev Computes the EIP-712 domain separator from the contract's EIP712 override
     /// @return The domain separator
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 
     /// @notice Check if an address is a trusted executor
+    /// @dev Returns the executor's trust status from the internal mapping
     /// @param executor The address to check
     /// @return True if the executor is trusted
     function isTrustedExecutor(address executor) external view returns (bool);
 
     /// @notice Get the treasury address
+    /// @dev Returns the current treasury address that receives fees
     /// @return The treasury address that receives fees
     function treasury() external view returns (address);
 
     /// @notice Get autoclaim authorization for a request
+    /// @dev Returns the autoclaim authorization from the internal registry mapping
     /// @param requestId The stake/unstake request ID
     /// @return The autoclaim authorization data
     function getAutoclaimAuth(bytes32 requestId) external view returns (AutoclaimAuth memory);
 
     /// @notice Check if autoclaim can be executed for a request
+    /// @dev Checks vault != address(0) and !executed in the authorization
     /// @param requestId The stake/unstake request ID
     /// @return True if autoclaim is registered, not executed, and not expired
     function canAutoclaim(bytes32 requestId) external view returns (bool);
+
+    /* //////////////////////////////////////////////////////////////
+                            ADMIN FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Set a trusted executor
+    /// @param executor The executor address
+    /// @param trusted Whether the executor is trusted
+    function setTrustedExecutor(address executor, bool trusted) external;
+
+    /// @notice Set the treasury address
+    /// @param _treasury The new treasury address
+    function setTreasury(address _treasury) external;
+
+    /// @notice Rescue stuck tokens from the contract
+    /// @param token The token address (address(0) for ETH)
+    /// @param to The recipient address
+    /// @param amount The amount to rescue
+    function rescueTokens(address token, address to, uint256 amount) external;
 }

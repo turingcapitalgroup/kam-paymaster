@@ -4,7 +4,7 @@ A gasless ERC2771 forwarder contract that enables users to perform gasless inter
 
 ## Overview
 
-The KamPaymaster contract allows users to execute staking operations without holding ETH for gas. Users sign meta-transactions with a `maxFee` parameter to protect against excessive fees, and trusted executors relay the transactions while deducting fees from the tokens being transferred.
+The kPaymaster contract allows users to execute staking operations without holding ETH for gas. Users sign meta-transactions with a `maxFee` parameter to protect against excessive fees, and trusted executors relay the transactions while deducting fees from the tokens being transferred.
 
 ### Key Features
 
@@ -23,7 +23,7 @@ User Signs Request + Permit (with maxFee)
          |
    Trusted Executor (specifies actual fee <= maxFee)
          |
-   KamPaymaster
+   kPaymaster
     |-- Validates signatures
     |-- Validates fee <= maxFee
     |-- Executes permit (gasless approval)
@@ -89,13 +89,13 @@ The project includes three test suites:
 
 ```bash
 # Unit tests with mocks
-forge test --match-contract KamPaymasterTest
+forge test --match-contract kPaymasterTest
 
 # Integration tests with mock vault
-forge test --match-contract KamPaymasterIntegrationTest
+forge test --match-contract kPaymasterIntegrationTest
 
 # Integration tests with actual KAM protocol
-forge test --match-contract KamPaymasterKAMTest
+forge test --match-contract kPaymasterKAMTest
 ```
 
 ### Environment Setup
@@ -110,7 +110,7 @@ DEPLOYMENT_BASE_PATH=dependencies/kam-1.0/deployments
 
 ```bash
 # Deploy
-forge script script/DeployKamPaymaster.s.sol --rpc-url <rpc_url> --broadcast
+forge script script/DeploykPaymaster.s.sol --rpc-url <rpc_url> --broadcast
 ```
 
 ### Post-Deployment Setup

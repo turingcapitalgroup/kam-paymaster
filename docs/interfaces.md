@@ -1,8 +1,8 @@
 # Contract Interfaces
 
-## IKamPaymaster
+## IkPaymaster
 
-The main interface for the KamPaymaster contract.
+The main interface for the kPaymaster contract.
 
 ### Structs
 
@@ -358,7 +358,7 @@ bytes32 constant UNSTAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH = keccak256(
 
 ```solidity
 {
-    name: "KamPaymaster",
+    name: "kPaymaster",
     version: "1",
     chainId: <network chain id>,
     verifyingContract: <paymaster address>

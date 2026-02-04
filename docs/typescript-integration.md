@@ -1,6 +1,6 @@
 # TypeScript Integration Guide
 
-This guide explains how to integrate with KamPaymaster from a TypeScript application using viem. The frontend handles user signing (MetaMask/wallet), and the backend executor submits transactions.
+This guide explains how to integrate with kPaymaster from a TypeScript application using viem. The frontend handles user signing (MetaMask/wallet), and the backend executor submits transactions.
 
 ## Dependencies
 
@@ -634,7 +634,7 @@ async function signStakeRequest(
   return walletClient.signTypedData({
     account,
     domain: {
-      name: "KamPaymaster",
+      name: "kPaymaster",
       version: "1",
       chainId: chain.id,
       verifyingContract: paymasterAddress
@@ -668,7 +668,7 @@ async function signUnstakeRequest(
   return walletClient.signTypedData({
     account,
     domain: {
-      name: "KamPaymaster",
+      name: "kPaymaster",
       version: "1",
       chainId: chain.id,
       verifyingContract: paymasterAddress
@@ -701,7 +701,7 @@ async function signClaimRequest(
   return walletClient.signTypedData({
     account,
     domain: {
-      name: "KamPaymaster",
+      name: "kPaymaster",
       version: "1",
       chainId: chain.id,
       verifyingContract: paymasterAddress
@@ -735,7 +735,7 @@ async function signStakeWithAutoclaimRequest(
   return walletClient.signTypedData({
     account,
     domain: {
-      name: "KamPaymaster",
+      name: "kPaymaster",
       version: "1",
       chainId: chain.id,
       verifyingContract: paymasterAddress
@@ -769,7 +769,7 @@ async function signUnstakeWithAutoclaimRequest(
   return walletClient.signTypedData({
     account,
     domain: {
-      name: "KamPaymaster",
+      name: "kPaymaster",
       version: "1",
       chainId: chain.id,
       verifyingContract: paymasterAddress

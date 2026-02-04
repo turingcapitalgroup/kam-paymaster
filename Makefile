@@ -33,30 +33,30 @@ help:
 # Network-specific deployments
 deploy-mainnet:
 	@echo "Deploying to MAINNET..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_MAINNET} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --verify --etherscan-api-key ${ETHERSCAN_MAINNET_KEY} --slow
+	forge script script/DeploykPaymaster.s.sol --sig "run()" --rpc-url ${RPC_MAINNET} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --verify --etherscan-api-key ${ETHERSCAN_MAINNET_KEY} --slow
 	@$(MAKE) format-output
 
 deploy-mainnet-dry-run:
 	@echo "[DRY-RUN] Simulating deployment to MAINNET..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_MAINNET} --account keyDeployer --sender ${DEPLOYER_ADDRESS} --slow
+	forge script script/DeploykPaymaster.s.sol --sig "run()" --rpc-url ${RPC_MAINNET} --account keyDeployer --sender ${DEPLOYER_ADDRESS} --slow
 
 deploy-sepolia:
 	@echo "Deploying to SEPOLIA..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_SEPOLIA} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --verify --etherscan-api-key ${ETHERSCAN_SEPOLIA_KEY} --slow
+	forge script script/DeploykPaymaster.s.sol --sig "run()" --rpc-url ${RPC_SEPOLIA} --broadcast --account keyDeployer --sender ${DEPLOYER_ADDRESS} --verify --etherscan-api-key ${ETHERSCAN_SEPOLIA_KEY} --slow
 	@$(MAKE) format-output
 
 deploy-sepolia-dry-run:
 	@echo "[DRY-RUN] Simulating deployment to SEPOLIA..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url ${RPC_SEPOLIA} --account keyDeployer --sender ${DEPLOYER_ADDRESS} --slow
+	forge script script/DeploykPaymaster.s.sol --sig "run()" --rpc-url ${RPC_SEPOLIA} --account keyDeployer --sender ${DEPLOYER_ADDRESS} --slow
 
 deploy-localhost:
 	@echo "Deploying to LOCALHOST..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url http://localhost:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --slow
+	forge script script/DeploykPaymaster.s.sol --sig "run()" --rpc-url http://localhost:8545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --slow
 	@$(MAKE) format-output
 
 deploy-localhost-dry-run:
 	@echo "[DRY-RUN] Simulating deployment to LOCALHOST..."
-	forge script script/DeployKamPaymaster.s.sol --sig "run()" --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --slow
+	forge script script/DeploykPaymaster.s.sol --sig "run()" --rpc-url http://localhost:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --sender 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --slow
 
 # Etherscan verification (mainnet)
 verify-mainnet:
@@ -69,8 +69,8 @@ verify-mainnet:
 		echo "No mainnet config found"; \
 		exit 1; \
 	fi
-	@echo "Verifying KamPaymaster..."
-	@forge verify-contract $$(jq -r '.contracts.kamPaymaster' deployments/output/mainnet/addresses.json) src/KamPaymaster.sol:KamPaymaster \
+	@echo "Verifying kPaymaster..."
+	@forge verify-contract $$(jq -r '.contracts.kPaymaster' deployments/output/mainnet/addresses.json) src/kPaymaster.sol:kPaymaster \
 		--chain-id 1 \
 		--etherscan-api-key ${ETHERSCAN_MAINNET_KEY} \
 		--constructor-args $$(cast abi-encode "constructor(address,address,address)" \
@@ -91,8 +91,8 @@ verify-sepolia:
 		echo "No sepolia config found"; \
 		exit 1; \
 	fi
-	@echo "Verifying KamPaymaster..."
-	@forge verify-contract $$(jq -r '.contracts.kamPaymaster' deployments/output/sepolia/addresses.json) src/KamPaymaster.sol:KamPaymaster \
+	@echo "Verifying kPaymaster..."
+	@forge verify-contract $$(jq -r '.contracts.kPaymaster' deployments/output/sepolia/addresses.json) src/kPaymaster.sol:kPaymaster \
 		--chain-id 11155111 \
 		--etherscan-api-key ${ETHERSCAN_SEPOLIA_KEY} \
 		--constructor-args $$(cast abi-encode "constructor(address,address,address)" \

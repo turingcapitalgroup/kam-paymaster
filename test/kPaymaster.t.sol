@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { KamPaymaster } from "../src/KamPaymaster.sol";
-import { IKamPaymaster } from "../src/interfaces/IKamPaymaster.sol";
+import { IkPaymaster } from "../src/interfaces/IkPaymaster.sol";
+import { kPaymaster } from "../src/kPaymaster.sol";
 import { Test } from "forge-std/Test.sol";
 
 contract MockERC20Permit {
@@ -219,8 +219,8 @@ contract MockRegistry {
     }
 }
 
-contract KamPaymasterTest is Test {
-    KamPaymaster public paymaster;
+contract kPaymasterTest is Test {
+    kPaymaster public paymaster;
     MockERC20Permit public kToken;
     MockERC20Permit public underlyingAsset;
     MockKStakingVault public vault;
@@ -250,7 +250,7 @@ contract KamPaymasterTest is Test {
         mockRegistry.setVault(address(vault), true);
 
         vm.prank(owner);
-        paymaster = new KamPaymaster(owner, treasury, address(mockRegistry));
+        paymaster = new kPaymaster(owner, treasury, address(mockRegistry));
 
         vm.prank(owner);
         paymaster.setTrustedExecutor(executor, true);
@@ -280,7 +280,7 @@ contract KamPaymasterTest is Test {
     function test_revert_notTrustedExecutor() public {
         address notExecutor = makeAddr("notExecutor");
 
-        IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
+        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -291,12 +291,12 @@ contract KamPaymasterTest is Test {
         });
 
         // Single permit to paymaster for full amount
-        IKamPaymaster.PermitSignature memory permit = IKamPaymaster.PermitSignature({
+        IkPaymaster.PermitSignature memory permit = IkPaymaster.PermitSignature({
             value: 1000 * 1e6, deadline: block.timestamp + 1 hours, v: 27, r: bytes32(0), s: bytes32(0)
         });
 
         vm.prank(notExecutor);
-        vm.expectRevert(IKamPaymaster.NotTrustedExecutor.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_NotTrustedExecutor.selector);
         paymaster.executeRequestStakeWithPermit(request, permit, "", 100 * 1e6);
     }
 
@@ -318,7 +318,7 @@ contract KamPaymasterTest is Test {
 
     function test_revert_setTreasury_zeroAddress() public {
         vm.prank(owner);
-        vm.expectRevert(IKamPaymaster.ZeroAddress.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_ZeroAddress.selector);
         paymaster.setTreasury(address(0));
     }
 
@@ -345,12 +345,12 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create single permit signature for paymaster (to pull full amount)
-        IKamPaymaster.PermitSignature memory permit = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
             address(kToken), user, address(paymaster), stakeAmount, deadline, kToken.nonces(user), userPrivateKey
         );
 
         // Create stake request
-        IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
+        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -383,7 +383,7 @@ contract KamPaymasterTest is Test {
         kToken.approve(address(paymaster), stakeAmount);
 
         // Create stake request
-        IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
+        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -412,12 +412,12 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create permit signature for stkToken (vault) - single permit model: permit full amount
-        IKamPaymaster.PermitSignature memory permitSig = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permitSig = _createPermitSignature(
             address(vault), user, address(paymaster), unstakeAmount, deadline, vault.nonces(user), userPrivateKey
         );
 
         // Create unstake request
-        IKamPaymaster.UnstakeRequest memory request = IKamPaymaster.UnstakeRequest({
+        IkPaymaster.UnstakeRequest memory request = IkPaymaster.UnstakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -450,7 +450,7 @@ contract KamPaymasterTest is Test {
         vault.approve(address(paymaster), unstakeAmount);
 
         // Create unstake request
-        IKamPaymaster.UnstakeRequest memory request = IKamPaymaster.UnstakeRequest({
+        IkPaymaster.UnstakeRequest memory request = IkPaymaster.UnstakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -479,12 +479,12 @@ contract KamPaymasterTest is Test {
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create permit signature for stkToken (for fee payment)
-        IKamPaymaster.PermitSignature memory permitSig = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permitSig = _createPermitSignature(
             address(vault), user, address(paymaster), fee, deadline, vault.nonces(user), userPrivateKey
         );
 
         // Create claim request
-        IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
+        IkPaymaster.ClaimRequest memory request = IkPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -518,7 +518,7 @@ contract KamPaymasterTest is Test {
         vault.approve(address(paymaster), fee);
 
         // Create claim request
-        IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
+        IkPaymaster.ClaimRequest memory request = IkPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -547,12 +547,12 @@ contract KamPaymasterTest is Test {
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create permit signature for kToken (for fee payment)
-        IKamPaymaster.PermitSignature memory permitSig = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permitSig = _createPermitSignature(
             address(kToken), user, address(paymaster), fee, deadline, kToken.nonces(user), userPrivateKey
         );
 
         // Create claim request
-        IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
+        IkPaymaster.ClaimRequest memory request = IkPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -585,7 +585,7 @@ contract KamPaymasterTest is Test {
         kToken.approve(address(paymaster), fee);
 
         // Create claim request
-        IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
+        IkPaymaster.ClaimRequest memory request = IkPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -614,7 +614,7 @@ contract KamPaymasterTest is Test {
         bytes32 mockRequestId = keccak256("mockRequestId");
 
         // Create claim request
-        IKamPaymaster.ClaimRequest memory request = IKamPaymaster.ClaimRequest({
+        IkPaymaster.ClaimRequest memory request = IkPaymaster.ClaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -643,11 +643,11 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Single permit for full amount to paymaster
-        IKamPaymaster.PermitSignature memory permit = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
             address(kToken), user, address(paymaster), stakeAmount, deadline, kToken.nonces(user), userPrivateKey
         );
 
-        IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
+        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -660,7 +660,7 @@ contract KamPaymasterTest is Test {
         bytes memory requestSig = _createStakeRequestSignature(request, userPrivateKey);
 
         vm.prank(executor);
-        vm.expectRevert(IKamPaymaster.FeeExceedsMax.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_FeeExceedsMax.selector);
         paymaster.executeRequestStakeWithPermit(request, permit, requestSig, fee);
     }
 
@@ -670,11 +670,11 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Single permit for full amount to paymaster
-        IKamPaymaster.PermitSignature memory permit = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
             address(kToken), user, address(paymaster), stakeAmount, deadline, kToken.nonces(user), userPrivateKey
         );
 
-        IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
+        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -687,7 +687,7 @@ contract KamPaymasterTest is Test {
         bytes memory requestSig = _createStakeRequestSignature(request, userPrivateKey);
 
         vm.prank(executor);
-        vm.expectRevert(IKamPaymaster.InsufficientAmountForFee.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_InsufficientAmountForFee.selector);
         paymaster.executeRequestStakeWithPermit(request, permit, requestSig, fee);
     }
 
@@ -698,11 +698,11 @@ contract KamPaymasterTest is Test {
         uint256 permitDeadline = block.timestamp + 1 hours;
 
         // Single permit for full amount to paymaster
-        IKamPaymaster.PermitSignature memory permit = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
             address(kToken), user, address(paymaster), stakeAmount, permitDeadline, kToken.nonces(user), userPrivateKey
         );
 
-        IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
+        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -715,7 +715,7 @@ contract KamPaymasterTest is Test {
         bytes memory requestSig = _createStakeRequestSignature(request, userPrivateKey);
 
         vm.prank(executor);
-        vm.expectRevert(IKamPaymaster.RequestExpired.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_RequestExpired.selector);
         paymaster.executeRequestStakeWithPermit(request, permit, requestSig, fee);
     }
 
@@ -725,11 +725,11 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Single permit for full amount to paymaster
-        IKamPaymaster.PermitSignature memory permit = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
             address(kToken), user, address(paymaster), stakeAmount, deadline, kToken.nonces(user), userPrivateKey
         );
 
-        IKamPaymaster.StakeRequest memory request = IKamPaymaster.StakeRequest({
+        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
             user: user,
             nonce: 999, // Wrong nonce
             vault: address(vault),
@@ -742,7 +742,7 @@ contract KamPaymasterTest is Test {
         bytes memory requestSig = _createStakeRequestSignature(request, userPrivateKey);
 
         vm.prank(executor);
-        vm.expectRevert(IKamPaymaster.InvalidNonce.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_InvalidNonce.selector);
         paymaster.executeRequestStakeWithPermit(request, permit, requestSig, fee);
     }
 
@@ -756,12 +756,12 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create permit signature for kToken - full amount (stakeAmount includes fee)
-        IKamPaymaster.PermitSignature memory permitSig = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permitSig = _createPermitSignature(
             address(kToken), user, address(paymaster), stakeAmount, deadline, kToken.nonces(user), userPrivateKey
         );
 
         // Create stake with autoclaim request
-        IKamPaymaster.StakeWithAutoclaimRequest memory request = IKamPaymaster.StakeWithAutoclaimRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -798,7 +798,7 @@ contract KamPaymasterTest is Test {
         vm.prank(user);
         kToken.approve(address(paymaster), stakeAmount);
 
-        IKamPaymaster.StakeWithAutoclaimRequest memory request = IKamPaymaster.StakeWithAutoclaimRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -830,7 +830,7 @@ contract KamPaymasterTest is Test {
         vm.prank(user);
         kToken.approve(address(paymaster), stakeAmount);
 
-        IKamPaymaster.StakeWithAutoclaimRequest memory request = IKamPaymaster.StakeWithAutoclaimRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -866,11 +866,11 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         // Create permit signature for stkToken (vault) - full amount
-        IKamPaymaster.PermitSignature memory permitSig = _createPermitSignature(
+        IkPaymaster.PermitSignature memory permitSig = _createPermitSignature(
             address(vault), user, address(paymaster), unstakeAmount, deadline, vault.nonces(user), userPrivateKey
         );
 
-        IKamPaymaster.UnstakeWithAutoclaimRequest memory request = IKamPaymaster.UnstakeWithAutoclaimRequest({
+        IkPaymaster.UnstakeWithAutoclaimRequest memory request = IkPaymaster.UnstakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -905,7 +905,7 @@ contract KamPaymasterTest is Test {
         vm.prank(user);
         vault.approve(address(paymaster), unstakeAmount);
 
-        IKamPaymaster.UnstakeWithAutoclaimRequest memory request = IKamPaymaster.UnstakeWithAutoclaimRequest({
+        IkPaymaster.UnstakeWithAutoclaimRequest memory request = IkPaymaster.UnstakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -937,7 +937,7 @@ contract KamPaymasterTest is Test {
         bytes32 fakeRequestId = keccak256("fake");
 
         vm.prank(executor);
-        vm.expectRevert(IKamPaymaster.AutoclaimNotRegistered.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_AutoclaimNotRegistered.selector);
         paymaster.executeAutoclaimStakedShares(fakeRequestId);
     }
 
@@ -950,7 +950,7 @@ contract KamPaymasterTest is Test {
         vm.prank(user);
         kToken.approve(address(paymaster), stakeAmount);
 
-        IKamPaymaster.StakeWithAutoclaimRequest memory request = IKamPaymaster.StakeWithAutoclaimRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -971,7 +971,7 @@ contract KamPaymasterTest is Test {
 
         // Try to execute again - should fail
         vm.prank(executor);
-        vm.expectRevert(IKamPaymaster.AutoclaimAlreadyExecuted.selector);
+        vm.expectRevert(IkPaymaster.kPaymaster_AutoclaimAlreadyExecuted.selector);
         paymaster.executeAutoclaimStakedShares(requestId);
     }
 
@@ -983,7 +983,7 @@ contract KamPaymasterTest is Test {
         vm.prank(user);
         kToken.approve(address(paymaster), stakeAmount);
 
-        IKamPaymaster.StakeWithAutoclaimRequest memory request = IKamPaymaster.StakeWithAutoclaimRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -998,7 +998,7 @@ contract KamPaymasterTest is Test {
         vm.prank(executor);
         bytes32 requestId = paymaster.executeRequestStakeWithAutoclaim(request, requestSig, fee);
 
-        IKamPaymaster.AutoclaimAuth memory auth = paymaster.getAutoclaimAuth(requestId);
+        IkPaymaster.AutoclaimAuth memory auth = paymaster.getAutoclaimAuth(requestId);
         assertEq(auth.vault, address(vault));
         assertTrue(auth.isStake);
         assertFalse(auth.executed);
@@ -1016,7 +1016,7 @@ contract KamPaymasterTest is Test {
             vm.prank(user);
             kToken.approve(address(paymaster), stakeAmount);
 
-            IKamPaymaster.StakeWithAutoclaimRequest memory request = IKamPaymaster.StakeWithAutoclaimRequest({
+            IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
                 user: user,
                 nonce: uint96(i),
                 vault: address(vault),
@@ -1059,7 +1059,7 @@ contract KamPaymasterTest is Test {
             vm.prank(user);
             vault.approve(address(paymaster), unstakeAmount);
 
-            IKamPaymaster.UnstakeWithAutoclaimRequest memory request = IKamPaymaster.UnstakeWithAutoclaimRequest({
+            IkPaymaster.UnstakeWithAutoclaimRequest memory request = IkPaymaster.UnstakeWithAutoclaimRequest({
                 user: user,
                 nonce: uint96(i),
                 vault: address(vault),
@@ -1099,7 +1099,7 @@ contract KamPaymasterTest is Test {
         vm.prank(user);
         kToken.approve(address(paymaster), stakeAmount);
 
-        IKamPaymaster.StakeWithAutoclaimRequest memory request = IKamPaymaster.StakeWithAutoclaimRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: user,
             nonce: 0,
             vault: address(vault),
@@ -1136,7 +1136,7 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         bytes32[] memory requestIds = new bytes32[](2);
-        IKamPaymaster.ClaimRequest[] memory claimRequests = new IKamPaymaster.ClaimRequest[](2);
+        IkPaymaster.ClaimRequest[] memory claimRequests = new IkPaymaster.ClaimRequest[](2);
         bytes[] memory claimSigs = new bytes[](2);
         uint96[] memory claimFees = new uint96[](2);
 
@@ -1145,7 +1145,7 @@ contract KamPaymasterTest is Test {
             vm.prank(user);
             kToken.approve(address(paymaster), stakeAmount);
 
-            IKamPaymaster.StakeRequest memory stakeReq = IKamPaymaster.StakeRequest({
+            IkPaymaster.StakeRequest memory stakeReq = IkPaymaster.StakeRequest({
                 user: user,
                 nonce: uint96(i),
                 vault: address(vault),
@@ -1163,7 +1163,7 @@ contract KamPaymasterTest is Test {
 
         // Now batch claim the staked shares
         for (uint256 i = 0; i < 2; i++) {
-            claimRequests[i] = IKamPaymaster.ClaimRequest({
+            claimRequests[i] = IkPaymaster.ClaimRequest({
                 user: user,
                 nonce: uint96(i + 2), // nonces continue from stake requests
                 vault: address(vault),
@@ -1194,7 +1194,7 @@ contract KamPaymasterTest is Test {
         uint256 deadline = block.timestamp + 1 hours;
 
         bytes32[] memory requestIds = new bytes32[](2);
-        IKamPaymaster.ClaimRequest[] memory claimRequests = new IKamPaymaster.ClaimRequest[](2);
+        IkPaymaster.ClaimRequest[] memory claimRequests = new IkPaymaster.ClaimRequest[](2);
         bytes[] memory claimSigs = new bytes[](2);
         uint96[] memory claimFees = new uint96[](2);
 
@@ -1203,7 +1203,7 @@ contract KamPaymasterTest is Test {
             vm.prank(user);
             vault.approve(address(paymaster), unstakeAmount);
 
-            IKamPaymaster.UnstakeRequest memory unstakeReq = IKamPaymaster.UnstakeRequest({
+            IkPaymaster.UnstakeRequest memory unstakeReq = IkPaymaster.UnstakeRequest({
                 user: user,
                 nonce: uint96(i),
                 vault: address(vault),
@@ -1221,7 +1221,7 @@ contract KamPaymasterTest is Test {
 
         // Now batch claim the unstaked assets
         for (uint256 i = 0; i < 2; i++) {
-            claimRequests[i] = IKamPaymaster.ClaimRequest({
+            claimRequests[i] = IkPaymaster.ClaimRequest({
                 user: user,
                 nonce: uint96(i + 2),
                 vault: address(vault),
@@ -1252,7 +1252,7 @@ contract KamPaymasterTest is Test {
         uint96 fee = 15 * 1e6;
         uint256 deadline = block.timestamp + 1 hours;
 
-        IKamPaymaster.StakeWithAutoclaimRequest[] memory requests = new IKamPaymaster.StakeWithAutoclaimRequest[](2);
+        IkPaymaster.StakeWithAutoclaimRequest[] memory requests = new IkPaymaster.StakeWithAutoclaimRequest[](2);
         bytes[] memory sigs = new bytes[](2);
         uint96[] memory fees = new uint96[](2);
 
@@ -1261,7 +1261,7 @@ contract KamPaymasterTest is Test {
         kToken.approve(address(paymaster), stakeAmount * 2);
 
         for (uint256 i = 0; i < 2; i++) {
-            requests[i] = IKamPaymaster.StakeWithAutoclaimRequest({
+            requests[i] = IkPaymaster.StakeWithAutoclaimRequest({
                 user: user,
                 nonce: uint96(i),
                 vault: address(vault),
@@ -1290,7 +1290,7 @@ contract KamPaymasterTest is Test {
         uint96 fee = 15 * 1e6;
         uint256 deadline = block.timestamp + 1 hours;
 
-        IKamPaymaster.UnstakeWithAutoclaimRequest[] memory requests = new IKamPaymaster.UnstakeWithAutoclaimRequest[](2);
+        IkPaymaster.UnstakeWithAutoclaimRequest[] memory requests = new IkPaymaster.UnstakeWithAutoclaimRequest[](2);
         bytes[] memory sigs = new bytes[](2);
         uint96[] memory fees = new uint96[](2);
 
@@ -1299,7 +1299,7 @@ contract KamPaymasterTest is Test {
         vault.approve(address(paymaster), unstakeAmount * 2);
 
         for (uint256 i = 0; i < 2; i++) {
-            requests[i] = IKamPaymaster.UnstakeWithAutoclaimRequest({
+            requests[i] = IkPaymaster.UnstakeWithAutoclaimRequest({
                 user: user,
                 nonce: uint96(i),
                 vault: address(vault),
@@ -1336,7 +1336,7 @@ contract KamPaymasterTest is Test {
     )
         internal
         view
-        returns (IKamPaymaster.PermitSignature memory)
+        returns (IkPaymaster.PermitSignature memory)
     {
         bytes32 permitTypehash =
             keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
@@ -1348,11 +1348,11 @@ contract KamPaymasterTest is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
 
-        return IKamPaymaster.PermitSignature({ value: value, deadline: deadline, v: v, r: r, s: s });
+        return IkPaymaster.PermitSignature({ value: value, deadline: deadline, v: v, r: r, s: s });
     }
 
     function _createStakeRequestSignature(
-        IKamPaymaster.StakeRequest memory request,
+        IkPaymaster.StakeRequest memory request,
         uint256 privateKey
     )
         internal
@@ -1380,7 +1380,7 @@ contract KamPaymasterTest is Test {
     }
 
     function _createUnstakeRequestSignature(
-        IKamPaymaster.UnstakeRequest memory request,
+        IkPaymaster.UnstakeRequest memory request,
         uint256 privateKey
     )
         internal
@@ -1408,7 +1408,7 @@ contract KamPaymasterTest is Test {
     }
 
     function _createClaimRequestSignature(
-        IKamPaymaster.ClaimRequest memory request,
+        IkPaymaster.ClaimRequest memory request,
         uint256 privateKey
     )
         internal
@@ -1435,7 +1435,7 @@ contract KamPaymasterTest is Test {
     }
 
     function _createStakeWithAutoclaimRequestSignature(
-        IKamPaymaster.StakeWithAutoclaimRequest memory request,
+        IkPaymaster.StakeWithAutoclaimRequest memory request,
         uint256 privateKey
     )
         internal
@@ -1463,7 +1463,7 @@ contract KamPaymasterTest is Test {
     }
 
     function _createUnstakeWithAutoclaimRequestSignature(
-        IKamPaymaster.UnstakeWithAutoclaimRequest memory request,
+        IkPaymaster.UnstakeWithAutoclaimRequest memory request,
         uint256 privateKey
     )
         internal
