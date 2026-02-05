@@ -4,14 +4,16 @@
 
 The kPaymaster is an ERC2771-style trusted forwarder that enables gasless interactions with KAM Protocol's kStakingVaults. Users sign meta-transactions off-chain, and trusted executors (relayers) submit them on-chain while deducting fees from the tokens being transferred.
 
+The contract supports autoclaim functionality, where users sign once for both the stake/unstake request and the eventual claim. The fee is paid upfront, allowing executors to claim on behalf of users after settlement without additional signatures.
+
 ## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              USER WALLET                                    │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  1. Sign EIP-2612 Permit(s) for token approval                      │    │
-│  │  2. Sign EIP-712 Request (Stake/Unstake/Claim)                      │    │
+│  │  1. Sign EIP-2612 Permit for token approval                         │    │
+│  │  2. Sign EIP-712 Request (StakeWithAutoclaim/UnstakeWithAutoclaim) │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -19,10 +21,11 @@ The kPaymaster is an ERC2771-style trusted forwarder that enables gasless intera
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           TRUSTED EXECUTOR (Relayer)                        │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │  - Receives signed request + permits from user                      │    │
+│  │  - Receives signed request + permit from user                       │    │
 │  │  - Determines actual fee (must be <= user's maxFee)                 │    │
-│  │  - Submits transaction to kPaymaster                              │    │
+│  │  - Submits transaction to kPaymaster                                │    │
 │  │  - Pays gas costs                                                   │    │
+│  │  - Later executes autoclaim after settlement                        │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -33,10 +36,11 @@ The kPaymaster is an ERC2771-style trusted forwarder that enables gasless intera
 │  │  1. Verify caller is trusted executor                               │    │
 │  │  2. Validate EIP-712 request signature                              │    │
 │  │  3. Validate fee <= maxFee                                          │    │
-│  │  4. Execute permit(s) for token approval                            │    │
-│  │  5. Transfer fee to treasury                                        │    │
+│  │  4. Execute permit for token approval                               │    │
+│  │  5. Transfer fee to treasury (covers both request + claim)          │    │
 │  │  6. Forward call to vault with user address appended                │    │
-│  │  7. Increment user nonce                                            │    │
+│  │  7. Register autoclaim for later execution                          │    │
+│  │  8. Increment user nonce                                            │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
                                       │
@@ -46,7 +50,7 @@ The kPaymaster is an ERC2771-style trusted forwarder that enables gasless intera
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
 │  │  - Receives call with user address appended to calldata             │    │
 │  │  - Extracts real user via _msgSender() (ERC2771)                    │    │
-│  │  - Executes stake/unstake/claim on behalf of user                   │    │
+│  │  - Executes stake/unstake on behalf of user                         │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -55,7 +59,7 @@ The kPaymaster is an ERC2771-style trusted forwarder that enables gasless intera
 
 ### kPaymaster
 
-The main contract that handles gasless meta-transactions.
+The main contract that handles gasless meta-transactions with autoclaim.
 
 **Inheritance:**
 - `IkPaymaster` - Interface definition
@@ -76,7 +80,7 @@ All request structs use **packed fields** for gas optimization:
 
 ```solidity
 // Packed into 4 slots (128 bytes)
-struct StakeRequest {
+struct StakeWithAutoclaimRequest {
     address user;           // 20 bytes ─┐
     uint96 nonce;           // 12 bytes ─┘ Slot 1
     address vault;          // 20 bytes ─┐
@@ -87,7 +91,7 @@ struct StakeRequest {
 }
 
 // Packed into 4 slots (128 bytes)
-struct UnstakeRequest {
+struct UnstakeWithAutoclaimRequest {
     address user;           // 20 bytes ─┐
     uint96 nonce;           // 12 bytes ─┘ Slot 1
     address vault;          // 20 bytes ─┐
@@ -96,15 +100,17 @@ struct UnstakeRequest {
     uint96 maxFee;          // 12 bytes ─┘ Slot 3
     uint256 stkTokenAmount; // 32 bytes    Slot 4
 }
+```
 
-// Packed into 4 slots (128 bytes)
-struct ClaimRequest {
-    address user;           // 20 bytes ─┐
-    uint96 nonce;           // 12 bytes ─┘ Slot 1
+### AutoclaimAuth
+
+Stored per `requestId` when a user opts into autoclaim. Single slot.
+
+```solidity
+struct AutoclaimAuth {
     address vault;          // 20 bytes ─┐
-    uint96 deadline;        // 12 bytes ─┘ Slot 2
-    uint96 maxFee;          // 12 bytes    Slot 3 (20 bytes padding)
-    bytes32 requestId;      // 32 bytes    Slot 4
+    bool isStake;           //  1 byte  ─┤ Slot 1
+    bool executed;          //  1 byte  ─┘
 }
 ```
 
@@ -122,69 +128,9 @@ struct PermitSignature {
 }
 ```
 
-## Flow Diagrams
+## Flow Diagram
 
-### Gasless Stake Flow
-
-```
-User                    Executor                 Paymaster              Vault
- │                         │                         │                    │
- │ Sign Permit (fee)       │                         │                    │
- │ Sign Permit (vault)     │                         │                    │
- │ Sign StakeRequest       │                         │                    │
- │────────────────────────>│                         │                    │
- │                         │                         │                    │
- │                         │ executeRequestStake     │                    │
- │                         │ WithPermit(req,permits, │                    │
- │                         │ sig, fee)               │                    │
- │                         │────────────────────────>│                    │
- │                         │                         │                    │
- │                         │                         │ validate signature │
- │                         │                         │ validate fee       │
- │                         │                         │ execute permits    │
- │                         │                         │                    │
- │                         │                         │ transfer fee       │
- │                         │                         │────────────>Treasury
- │                         │                         │                    │
- │                         │                         │ requestStake       │
- │                         │                         │ (appended user)    │
- │                         │                         │───────────────────>│
- │                         │                         │                    │
- │                         │                         │<───────────────────│
- │                         │                         │    requestId       │
- │                         │<────────────────────────│                    │
- │                         │        requestId        │                    │
-```
-
-### Gasless Claim Flow
-
-```
-User                    Executor                 Paymaster              Vault
- │                         │                         │                    │
- │ Sign Permit (fee)       │                         │                    │
- │ Sign ClaimRequest       │                         │                    │
- │────────────────────────>│                         │                    │
- │                         │                         │                    │
- │                         │ executeClaimStaked      │                    │
- │                         │ SharesWithPermit(...)   │                    │
- │                         │────────────────────────>│                    │
- │                         │                         │                    │
- │                         │                         │ claimStakedShares  │
- │                         │                         │ (appended user)    │
- │                         │                         │───────────────────>│
- │                         │                         │                    │
- │                         │                         │<───────────────────│
- │                         │                         │  (mints stkTokens) │
- │                         │                         │                    │
- │                         │                         │ transfer fee       │
- │                         │                         │────────────>Treasury
- │                         │                         │                    │
- │                         │<────────────────────────│                    │
-```
-
-### Autoclaim Flow
-
-Autoclaim lets users sign once for both the request and the eventual claim. The fee is paid upfront during the request, so the executor can claim later without needing another signature or fee transfer.
+### Stake With Autoclaim Flow
 
 ```
 User                    Executor                 Paymaster              Vault
@@ -194,7 +140,7 @@ User                    Executor                 Paymaster              Vault
  │────────────────────────>│                         │                    │
  │                         │                         │                    │
  │                         │ executeRequestStake     │                    │
- │                         │ WithAutoclaim(...)       │                    │
+ │                         │ WithAutoclaim(...)      │                    │
  │                         │────────────────────────>│                    │
  │                         │                         │                    │
  │                         │                         │ validate + permit  │
@@ -277,7 +223,7 @@ kTokens and stkTokens must:
 
 ```solidity
 // 1. Deploy paymaster
-kPaymaster paymaster = new kPaymaster(owner, treasury);
+kPaymaster paymaster = new kPaymaster(owner, treasury, registry);
 
 // 2. Add trusted executors
 paymaster.setTrustedExecutor(relayer, true);

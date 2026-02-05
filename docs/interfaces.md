@@ -6,56 +6,9 @@ The main interface for the kPaymaster contract.
 
 ### Structs
 
-#### StakeRequest
-
-Request to stake kTokens in a vault.
-
-```solidity
-struct StakeRequest {
-    address user;           // User address (20 bytes)
-    uint96 nonce;           // User's current nonce (12 bytes)
-    address vault;          // Target kStakingVault (20 bytes)
-    uint96 deadline;        // Request expiration timestamp (12 bytes)
-    address recipient;      // Recipient of stkTokens (20 bytes)
-    uint96 maxFee;          // Maximum fee user accepts (12 bytes)
-    uint256 kTokenAmount;   // Amount of kTokens to stake (32 bytes)
-}
-```
-
-#### UnstakeRequest
-
-Request to unstake stkTokens from a vault.
-
-```solidity
-struct UnstakeRequest {
-    address user;           // User address (20 bytes)
-    uint96 nonce;           // User's current nonce (12 bytes)
-    address vault;          // Target kStakingVault (20 bytes)
-    uint96 deadline;        // Request expiration timestamp (12 bytes)
-    address recipient;      // Recipient of kTokens (20 bytes)
-    uint96 maxFee;          // Maximum fee user accepts (12 bytes)
-    uint256 stkTokenAmount; // Amount of stkTokens to unstake (32 bytes)
-}
-```
-
-#### ClaimRequest
-
-Request to claim staked shares or unstaked assets.
-
-```solidity
-struct ClaimRequest {
-    address user;           // User address (20 bytes)
-    uint96 nonce;           // User's current nonce (12 bytes)
-    address vault;          // Target kStakingVault (20 bytes)
-    uint96 deadline;        // Request expiration timestamp (12 bytes)
-    uint96 maxFee;          // Maximum fee user accepts (12 bytes)
-    bytes32 requestId;      // Request ID from stake/unstake (32 bytes)
-}
-```
-
 #### StakeWithAutoclaimRequest
 
-Same shape as `StakeRequest`. Registers an autoclaim entry so the executor can claim after settlement without another user signature.
+Request to stake kTokens with autoclaim enabled.
 
 ```solidity
 struct StakeWithAutoclaimRequest {
@@ -71,7 +24,7 @@ struct StakeWithAutoclaimRequest {
 
 #### UnstakeWithAutoclaimRequest
 
-Same shape as `UnstakeRequest`, with autoclaim registration.
+Request to unstake stkTokens with autoclaim enabled.
 
 ```solidity
 struct UnstakeWithAutoclaimRequest {
@@ -113,99 +66,7 @@ struct PermitSignature {
 
 ### Functions
 
-#### Execute Functions (With Permit)
-
-```solidity
-function executeRequestStakeWithPermit(
-    StakeRequest calldata request,
-    PermitSignature calldata permitForForwarder,
-    PermitSignature calldata permitForVault,
-    bytes calldata requestSig,
-    uint96 fee
-) external returns (bytes32 requestId);
-
-function executeRequestUnstakeWithPermit(
-    UnstakeRequest calldata request,
-    PermitSignature calldata permitSig,
-    bytes calldata requestSig,
-    uint96 fee
-) external returns (bytes32 requestId);
-
-function executeClaimStakedSharesWithPermit(
-    ClaimRequest calldata request,
-    PermitSignature calldata permitSig,
-    bytes calldata requestSig,
-    uint96 fee
-) external;
-
-function executeClaimUnstakedAssetsWithPermit(
-    ClaimRequest calldata request,
-    PermitSignature calldata permitSig,
-    bytes calldata requestSig,
-    uint96 fee
-) external;
-```
-
-#### Execute Functions (Without Permit)
-
-```solidity
-function executeRequestStake(
-    StakeRequest calldata request,
-    bytes calldata requestSig,
-    uint96 fee
-) external returns (bytes32 requestId);
-
-function executeRequestUnstake(
-    UnstakeRequest calldata request,
-    bytes calldata requestSig,
-    uint96 fee
-) external returns (bytes32 requestId);
-
-function executeClaimStakedShares(
-    ClaimRequest calldata request,
-    bytes calldata requestSig,
-    uint96 fee
-) external;
-
-function executeClaimUnstakedAssets(
-    ClaimRequest calldata request,
-    bytes calldata requestSig,
-    uint96 fee
-) external;
-```
-
-#### Batch Functions
-
-```solidity
-function executeRequestStakeWithPermitBatch(
-    StakeRequest[] calldata requests,
-    PermitSignature[] calldata permitsForForwarder,
-    PermitSignature[] calldata permitsForVault,
-    bytes[] calldata requestSigs,
-    uint96[] calldata fees
-) external returns (bytes32[] memory requestIds);
-
-function executeRequestUnstakeWithPermitBatch(
-    UnstakeRequest[] calldata requests,
-    PermitSignature[] calldata permitSigs,
-    bytes[] calldata requestSigs,
-    uint96[] calldata fees
-) external returns (bytes32[] memory requestIds);
-
-function executeRequestStakeBatch(
-    StakeRequest[] calldata requests,
-    bytes[] calldata requestSigs,
-    uint96[] calldata fees
-) external returns (bytes32[] memory requestIds);
-
-function executeRequestUnstakeBatch(
-    UnstakeRequest[] calldata requests,
-    bytes[] calldata requestSigs,
-    uint96[] calldata fees
-) external returns (bytes32[] memory requestIds);
-```
-
-#### Autoclaim Functions
+#### Autoclaim Functions (With Permit)
 
 ```solidity
 // Request + register autoclaim (with permit)
@@ -222,7 +83,11 @@ function executeRequestUnstakeWithAutoclaimWithPermit(
     bytes calldata requestSig,
     uint96 fee
 ) external returns (bytes32 requestId);
+```
 
+#### Autoclaim Functions (Without Permit)
+
+```solidity
 // Request + register autoclaim (without permit)
 function executeRequestStakeWithAutoclaim(
     StakeWithAutoclaimRequest calldata request,
@@ -235,7 +100,41 @@ function executeRequestUnstakeWithAutoclaim(
     bytes calldata requestSig,
     uint96 fee
 ) external returns (bytes32 requestId);
+```
 
+#### Batch Autoclaim Request Functions
+
+```solidity
+function executeRequestStakeWithAutoclaimWithPermitBatch(
+    StakeWithAutoclaimRequest[] calldata requests,
+    PermitSignature[] calldata permits,
+    bytes[] calldata requestSigs,
+    uint96[] calldata fees
+) external returns (bytes32[] memory requestIds);
+
+function executeRequestUnstakeWithAutoclaimWithPermitBatch(
+    UnstakeWithAutoclaimRequest[] calldata requests,
+    PermitSignature[] calldata permits,
+    bytes[] calldata requestSigs,
+    uint96[] calldata fees
+) external returns (bytes32[] memory requestIds);
+
+function executeRequestStakeWithAutoclaimBatch(
+    StakeWithAutoclaimRequest[] calldata requests,
+    bytes[] calldata requestSigs,
+    uint96[] calldata fees
+) external returns (bytes32[] memory requestIds);
+
+function executeRequestUnstakeWithAutoclaimBatch(
+    UnstakeWithAutoclaimRequest[] calldata requests,
+    bytes[] calldata requestSigs,
+    uint96[] calldata fees
+) external returns (bytes32[] memory requestIds);
+```
+
+#### Execute Autoclaim Functions
+
+```solidity
 // Execute autoclaim (no user signature needed)
 function executeAutoclaimStakedShares(bytes32 requestId) external;
 function executeAutoclaimUnstakedAssets(bytes32 requestId) external;
@@ -328,23 +227,12 @@ error ClaimUnstakedAssetsFailed(); // Vault claim assets call failed
 error ArrayLengthMismatch();     // Batch array lengths don't match
 error AutoclaimNotRegistered();  // No autoclaim entry for this requestId
 error AutoclaimAlreadyExecuted();// Autoclaim already claimed
+error BatchTooLarge();           // Batch size exceeds maximum or is zero
 ```
 
 ## EIP-712 Type Hashes
 
 ```solidity
-bytes32 constant STAKE_REQUEST_TYPEHASH = keccak256(
-    "StakeRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 kTokenAmount)"
-);
-
-bytes32 constant UNSTAKE_REQUEST_TYPEHASH = keccak256(
-    "UnstakeRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 stkTokenAmount)"
-);
-
-bytes32 constant CLAIM_REQUEST_TYPEHASH = keccak256(
-    "ClaimRequest(address user,uint96 nonce,address vault,uint96 deadline,uint96 maxFee,bytes32 requestId)"
-);
-
 bytes32 constant STAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH = keccak256(
     "StakeWithAutoclaimRequest(address user,uint96 nonce,address vault,uint96 deadline,address recipient,uint96 maxFee,uint256 kTokenAmount)"
 );

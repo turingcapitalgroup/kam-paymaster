@@ -13,41 +13,6 @@ yarn add viem
 ## EIP-712 Type Definitions
 
 ```typescript
-const STAKE_REQUEST_TYPES = {
-  StakeRequest: [
-    { name: "user", type: "address" },
-    { name: "nonce", type: "uint96" },
-    { name: "vault", type: "address" },
-    { name: "deadline", type: "uint96" },
-    { name: "recipient", type: "address" },
-    { name: "maxFee", type: "uint96" },
-    { name: "kTokenAmount", type: "uint256" }
-  ]
-} as const;
-
-const UNSTAKE_REQUEST_TYPES = {
-  UnstakeRequest: [
-    { name: "user", type: "address" },
-    { name: "nonce", type: "uint96" },
-    { name: "vault", type: "address" },
-    { name: "deadline", type: "uint96" },
-    { name: "recipient", type: "address" },
-    { name: "maxFee", type: "uint96" },
-    { name: "stkTokenAmount", type: "uint256" }
-  ]
-} as const;
-
-const CLAIM_REQUEST_TYPES = {
-  ClaimRequest: [
-    { name: "user", type: "address" },
-    { name: "nonce", type: "uint96" },
-    { name: "vault", type: "address" },
-    { name: "deadline", type: "uint96" },
-    { name: "maxFee", type: "uint96" },
-    { name: "requestId", type: "bytes32" }
-  ]
-} as const;
-
 const STAKE_WITH_AUTOCLAIM_REQUEST_TYPES = {
   StakeWithAutoclaimRequest: [
     { name: "user", type: "address" },
@@ -93,230 +58,6 @@ const PAYMASTER_ABI = [
     inputs: [{ name: "user", type: "address" }],
     outputs: [{ type: "uint256" }],
     stateMutability: "view"
-  },
-  {
-    name: "executeRequestStakeWithPermit",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "recipient", type: "address" },
-          { name: "maxFee", type: "uint96" },
-          { name: "kTokenAmount", type: "uint256" }
-        ]
-      },
-      {
-        name: "permit",
-        type: "tuple",
-        components: [
-          { name: "value", type: "uint256" },
-          { name: "deadline", type: "uint256" },
-          { name: "v", type: "uint8" },
-          { name: "r", type: "bytes32" },
-          { name: "s", type: "bytes32" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [{ type: "bytes32" }],
-    stateMutability: "nonpayable"
-  },
-  {
-    name: "executeRequestStake",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "recipient", type: "address" },
-          { name: "maxFee", type: "uint96" },
-          { name: "kTokenAmount", type: "uint256" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [{ type: "bytes32" }],
-    stateMutability: "nonpayable"
-  },
-  {
-    name: "executeRequestUnstakeWithPermit",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "recipient", type: "address" },
-          { name: "maxFee", type: "uint96" },
-          { name: "stkTokenAmount", type: "uint256" }
-        ]
-      },
-      {
-        name: "permit",
-        type: "tuple",
-        components: [
-          { name: "value", type: "uint256" },
-          { name: "deadline", type: "uint256" },
-          { name: "v", type: "uint8" },
-          { name: "r", type: "bytes32" },
-          { name: "s", type: "bytes32" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [{ type: "bytes32" }],
-    stateMutability: "nonpayable"
-  },
-  {
-    name: "executeRequestUnstake",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "recipient", type: "address" },
-          { name: "maxFee", type: "uint96" },
-          { name: "stkTokenAmount", type: "uint256" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [{ type: "bytes32" }],
-    stateMutability: "nonpayable"
-  },
-  {
-    name: "executeClaimStakedSharesWithPermit",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "maxFee", type: "uint96" },
-          { name: "requestId", type: "bytes32" }
-        ]
-      },
-      {
-        name: "permitSig",
-        type: "tuple",
-        components: [
-          { name: "value", type: "uint256" },
-          { name: "deadline", type: "uint256" },
-          { name: "v", type: "uint8" },
-          { name: "r", type: "bytes32" },
-          { name: "s", type: "bytes32" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    name: "executeClaimStakedShares",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "maxFee", type: "uint96" },
-          { name: "requestId", type: "bytes32" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    name: "executeClaimUnstakedAssetsWithPermit",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "maxFee", type: "uint96" },
-          { name: "requestId", type: "bytes32" }
-        ]
-      },
-      {
-        name: "permitSig",
-        type: "tuple",
-        components: [
-          { name: "value", type: "uint256" },
-          { name: "deadline", type: "uint256" },
-          { name: "v", type: "uint8" },
-          { name: "r", type: "bytes32" },
-          { name: "s", type: "bytes32" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
-  },
-  {
-    name: "executeClaimUnstakedAssets",
-    type: "function",
-    inputs: [
-      {
-        name: "request",
-        type: "tuple",
-        components: [
-          { name: "user", type: "address" },
-          { name: "nonce", type: "uint96" },
-          { name: "vault", type: "address" },
-          { name: "deadline", type: "uint96" },
-          { name: "maxFee", type: "uint96" },
-          { name: "requestId", type: "bytes32" }
-        ]
-      },
-      { name: "requestSig", type: "bytes" },
-      { name: "fee", type: "uint96" }
-    ],
-    outputs: [],
-    stateMutability: "nonpayable"
   },
   {
     name: "executeRequestStakeWithAutoclaimWithPermit",
@@ -447,10 +188,40 @@ const PAYMASTER_ABI = [
     stateMutability: "nonpayable"
   },
   {
+    name: "executeAutoclaimStakedSharesBatch",
+    type: "function",
+    inputs: [{ name: "requestIds", type: "bytes32[]" }],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
+    name: "executeAutoclaimUnstakedAssetsBatch",
+    type: "function",
+    inputs: [{ name: "requestIds", type: "bytes32[]" }],
+    outputs: [],
+    stateMutability: "nonpayable"
+  },
+  {
     name: "canAutoclaim",
     type: "function",
     inputs: [{ name: "requestId", type: "bytes32" }],
     outputs: [{ type: "bool" }],
+    stateMutability: "view"
+  },
+  {
+    name: "getAutoclaimAuth",
+    type: "function",
+    inputs: [{ name: "requestId", type: "bytes32" }],
+    outputs: [
+      {
+        type: "tuple",
+        components: [
+          { name: "vault", type: "address" },
+          { name: "isStake", type: "bool" },
+          { name: "executed", type: "bool" }
+        ]
+      }
+    ],
     stateMutability: "view"
   },
   {
@@ -611,108 +382,6 @@ async function signPermit(
 }
 ```
 
-## Sign Stake Request
-
-```typescript
-async function signStakeRequest(
-  walletClient: WalletClient,
-  paymasterAddress: `0x${string}`,
-  request: {
-    user: `0x${string}`;
-    nonce: bigint;
-    vault: `0x${string}`;
-    deadline: bigint;
-    recipient: `0x${string}`;
-    maxFee: bigint;
-    kTokenAmount: bigint;
-  },
-  chain: Chain
-): Promise<`0x${string}`> {
-  const account = walletClient.account!;
-
-  // User signs in MetaMask
-  return walletClient.signTypedData({
-    account,
-    domain: {
-      name: "kPaymaster",
-      version: "1",
-      chainId: chain.id,
-      verifyingContract: paymasterAddress
-    },
-    types: STAKE_REQUEST_TYPES,
-    primaryType: "StakeRequest",
-    message: request
-  });
-}
-```
-
-## Sign Unstake Request
-
-```typescript
-async function signUnstakeRequest(
-  walletClient: WalletClient,
-  paymasterAddress: `0x${string}`,
-  request: {
-    user: `0x${string}`;
-    nonce: bigint;
-    vault: `0x${string}`;
-    deadline: bigint;
-    recipient: `0x${string}`;
-    maxFee: bigint;
-    stkTokenAmount: bigint;
-  },
-  chain: Chain
-): Promise<`0x${string}`> {
-  const account = walletClient.account!;
-
-  return walletClient.signTypedData({
-    account,
-    domain: {
-      name: "kPaymaster",
-      version: "1",
-      chainId: chain.id,
-      verifyingContract: paymasterAddress
-    },
-    types: UNSTAKE_REQUEST_TYPES,
-    primaryType: "UnstakeRequest",
-    message: request
-  });
-}
-```
-
-## Sign Claim Request
-
-```typescript
-async function signClaimRequest(
-  walletClient: WalletClient,
-  paymasterAddress: `0x${string}`,
-  request: {
-    user: `0x${string}`;
-    nonce: bigint;
-    vault: `0x${string}`;
-    deadline: bigint;
-    maxFee: bigint;
-    requestId: `0x${string}`;
-  },
-  chain: Chain
-): Promise<`0x${string}`> {
-  const account = walletClient.account!;
-
-  return walletClient.signTypedData({
-    account,
-    domain: {
-      name: "kPaymaster",
-      version: "1",
-      chainId: chain.id,
-      verifyingContract: paymasterAddress
-    },
-    types: CLAIM_REQUEST_TYPES,
-    primaryType: "ClaimRequest",
-    message: request
-  });
-}
-```
-
 ## Sign Stake With Autoclaim Request
 
 ```typescript
@@ -781,12 +450,12 @@ async function signUnstakeWithAutoclaimRequest(
 }
 ```
 
-## Complete Frontend Stake Flow
+## Complete Frontend Stake With Autoclaim Flow
 
-The user signs up to 2 messages: a permit (if needed) + the stake request.
+With autoclaim, the user signs once and the executor can claim on their behalf after batch settlement. The `maxFee` should cover both the request fee and the future claim fee.
 
 ```typescript
-async function prepareGaslessStake(
+async function prepareGaslessStakeWithAutoclaim(
   walletClient: WalletClient,
   publicClient: PublicClient,
   config: {
@@ -794,14 +463,13 @@ async function prepareGaslessStake(
     vaultAddress: `0x${string}`;
     kTokenAddress: `0x${string}`;
     stakeAmount: bigint;
-    maxFee: bigint;
+    maxFee: bigint; // Combined fee for request + claim
   },
   chain: Chain
 ) {
   const user = walletClient.account!.address;
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600); // 1 hour
 
-  // Get paymaster nonce
   const paymasterNonce = await publicClient.readContract({
     address: config.paymasterAddress,
     abi: PAYMASTER_ABI,
@@ -809,7 +477,7 @@ async function prepareGaslessStake(
     args: [user]
   });
 
-  const stakeRequest = {
+  const request = {
     user,
     nonce: paymasterNonce,
     vault: config.vaultAddress,
@@ -831,7 +499,6 @@ async function prepareGaslessStake(
   const needsPermit = currentAllowance < config.stakeAmount;
 
   if (needsPermit) {
-    // User signs permit for paymaster (MetaMask popup #1)
     const permitSig = await signPermit(
       walletClient,
       publicClient,
@@ -849,17 +516,16 @@ async function prepareGaslessStake(
     };
   }
 
-  // User signs stake request (MetaMask popup #2, or #1 if no permit needed)
-  const requestSig = await signStakeRequest(
+  // User signs the autoclaim request
+  const requestSig = await signStakeWithAutoclaimRequest(
     walletClient,
     config.paymasterAddress,
-    stakeRequest,
+    request,
     chain
   );
 
-  // Return data to send to backend
   return {
-    stakeRequest,
+    request,
     permit,
     requestSig,
     needsPermit
@@ -867,17 +533,17 @@ async function prepareGaslessStake(
 }
 ```
 
-## Complete Frontend Unstake Flow
+## Complete Frontend Unstake With Autoclaim Flow
 
 ```typescript
-async function prepareGaslessUnstake(
+async function prepareGaslessUnstakeWithAutoclaim(
   walletClient: WalletClient,
   publicClient: PublicClient,
   config: {
     paymasterAddress: `0x${string}`;
     vaultAddress: `0x${string}`; // vault is also stkToken
     unstakeAmount: bigint;
-    maxFee: bigint;
+    maxFee: bigint; // Combined fee for request + claim
   },
   chain: Chain
 ) {
@@ -891,7 +557,7 @@ async function prepareGaslessUnstake(
     args: [user]
   });
 
-  const unstakeRequest = {
+  const request = {
     user,
     nonce: paymasterNonce,
     vault: config.vaultAddress,
@@ -913,7 +579,6 @@ async function prepareGaslessUnstake(
   const needsPermit = currentAllowance < config.unstakeAmount;
 
   if (needsPermit) {
-    // User signs permit for paymaster on stkToken (MetaMask popup #1)
     const permitSig = await signPermit(
       walletClient,
       publicClient,
@@ -931,176 +596,8 @@ async function prepareGaslessUnstake(
     };
   }
 
-  // User signs unstake request (MetaMask popup #2 or #1)
-  const requestSig = await signUnstakeRequest(
-    walletClient,
-    config.paymasterAddress,
-    unstakeRequest,
-    chain
-  );
-
-  return {
-    unstakeRequest,
-    permit,
-    requestSig,
-    needsPermit
-  };
-}
-```
-
-## Complete Frontend Claim Flow
-
-```typescript
-async function prepareGaslessClaim(
-  walletClient: WalletClient,
-  publicClient: PublicClient,
-  config: {
-    paymasterAddress: `0x${string}`;
-    vaultAddress: `0x${string}`;
-    feeTokenAddress: `0x${string}`; // stkToken for claimStakedShares, kToken for claimUnstakedAssets
-    requestId: `0x${string}`;
-    maxFee: bigint;
-  },
-  chain: Chain
-) {
-  const user = walletClient.account!.address;
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-
-  const paymasterNonce = await publicClient.readContract({
-    address: config.paymasterAddress,
-    abi: PAYMASTER_ABI,
-    functionName: "nonces",
-    args: [user]
-  });
-
-  const claimRequest = {
-    user,
-    nonce: paymasterNonce,
-    vault: config.vaultAddress,
-    deadline,
-    maxFee: config.maxFee,
-    requestId: config.requestId
-  };
-
-  // Check if user already has sufficient allowance for the paymaster
-  const currentAllowance = await publicClient.readContract({
-    address: config.feeTokenAddress,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: [user, config.paymasterAddress]
-  });
-
-  let permit: PermitSignature | undefined;
-  const needsPermit = currentAllowance < config.maxFee;
-
-  if (needsPermit) {
-    // User signs permit for paymaster (MetaMask popup #1)
-    const permitSig = await signPermit(
-      walletClient,
-      publicClient,
-      config.feeTokenAddress,
-      config.paymasterAddress,
-      config.maxFee,
-      deadline,
-      chain
-    );
-
-    permit = {
-      value: config.maxFee,
-      deadline,
-      ...permitSig
-    };
-  }
-
-  // User signs claim request (MetaMask popup #2 or #1)
-  const requestSig = await signClaimRequest(
-    walletClient,
-    config.paymasterAddress,
-    claimRequest,
-    chain
-  );
-
-  return {
-    claimRequest,
-    permit,
-    requestSig,
-    needsPermit
-  };
-}
-```
-
-## Complete Frontend Stake With Autoclaim Flow
-
-With autoclaim, the user signs once and the executor can claim on their behalf after batch settlement. The `maxFee` should cover both the request fee and the future claim fee.
-
-```typescript
-async function prepareGaslessStakeWithAutoclaim(
-  walletClient: WalletClient,
-  publicClient: PublicClient,
-  config: {
-    paymasterAddress: `0x${string}`;
-    vaultAddress: `0x${string}`;
-    kTokenAddress: `0x${string}`;
-    stakeAmount: bigint;
-    requestMaxFee: bigint; // fee for the stake request
-    claimMaxFee: bigint;   // fee for the future claim
-  },
-  chain: Chain
-) {
-  const user = walletClient.account!.address;
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-
-  const paymasterNonce = await publicClient.readContract({
-    address: config.paymasterAddress,
-    abi: PAYMASTER_ABI,
-    functionName: "nonces",
-    args: [user]
-  });
-
-  // maxFee covers both request + claim fees combined
-  const combinedMaxFee = config.requestMaxFee + config.claimMaxFee;
-
-  const request = {
-    user,
-    nonce: paymasterNonce,
-    vault: config.vaultAddress,
-    deadline,
-    recipient: user,
-    maxFee: combinedMaxFee,
-    kTokenAmount: config.stakeAmount
-  };
-
-  // Check if user already has sufficient allowance for the paymaster
-  const currentAllowance = await publicClient.readContract({
-    address: config.kTokenAddress,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: [user, config.paymasterAddress]
-  });
-
-  let permit: PermitSignature | undefined;
-  const needsPermit = currentAllowance < config.stakeAmount;
-
-  if (needsPermit) {
-    const permitSig = await signPermit(
-      walletClient,
-      publicClient,
-      config.kTokenAddress,
-      config.paymasterAddress,
-      config.stakeAmount,
-      deadline,
-      chain
-    );
-
-    permit = {
-      value: config.stakeAmount,
-      deadline,
-      ...permitSig
-    };
-  }
-
-  // User signs the autoclaim request (uses different EIP-712 type)
-  const requestSig = await signStakeWithAutoclaimRequest(
+  // User signs the autoclaim request
+  const requestSig = await signUnstakeWithAutoclaimRequest(
     walletClient,
     config.paymasterAddress,
     request,
@@ -1189,16 +686,16 @@ async function calculateFee(
 }
 ```
 
-## Execute Stake
+## Execute Stake With Autoclaim
 
 Check allowance and use the appropriate function (with or without permit).
 
 ```typescript
-async function executeStake(
+async function executeStakeWithAutoclaim(
   executorWallet: WalletClient,
   publicClient: PublicClient,
   data: {
-    stakeRequest: StakeRequest;
+    request: StakeWithAutoclaimRequest;
     permit?: PermitSignature;
     requestSig: `0x${string}`;
   },
@@ -1208,7 +705,7 @@ async function executeStake(
   },
   fee: bigint
 ): Promise<`0x${string}`> {
-  const user = data.stakeRequest.user;
+  const user = data.request.user;
 
   // Check current allowance (kToken to paymaster)
   const allowanceForPaymaster = await publicClient.readContract({
@@ -1218,15 +715,15 @@ async function executeStake(
     args: [user, config.paymasterAddress]
   });
 
-  const needsPermit = allowanceForPaymaster < data.stakeRequest.kTokenAmount;
+  const needsPermit = allowanceForPaymaster < data.request.kTokenAmount;
 
   // If allowance is sufficient, use the non-permit function
   if (!needsPermit) {
     return executorWallet.writeContract({
       address: config.paymasterAddress,
       abi: PAYMASTER_ABI,
-      functionName: "executeRequestStake",
-      args: [data.stakeRequest, data.requestSig, fee]
+      functionName: "executeRequestStakeWithAutoclaim",
+      args: [data.request, data.requestSig, fee]
     });
   }
 
@@ -1238,9 +735,9 @@ async function executeStake(
   return executorWallet.writeContract({
     address: config.paymasterAddress,
     abi: PAYMASTER_ABI,
-    functionName: "executeRequestStakeWithPermit",
+    functionName: "executeRequestStakeWithAutoclaimWithPermit",
     args: [
-      data.stakeRequest,
+      data.request,
       data.permit,
       data.requestSig,
       fee
@@ -1249,14 +746,14 @@ async function executeStake(
 }
 ```
 
-## Execute Unstake
+## Execute Unstake With Autoclaim
 
 ```typescript
-async function executeUnstake(
+async function executeUnstakeWithAutoclaim(
   executorWallet: WalletClient,
   publicClient: PublicClient,
   data: {
-    unstakeRequest: UnstakeRequest;
+    request: UnstakeWithAutoclaimRequest;
     permit?: PermitSignature;
     requestSig: `0x${string}`;
   },
@@ -1266,7 +763,7 @@ async function executeUnstake(
   },
   fee: bigint
 ): Promise<`0x${string}`> {
-  const user = data.unstakeRequest.user;
+  const user = data.request.user;
 
   // Check current allowance (stkToken to paymaster)
   const allowanceForPaymaster = await publicClient.readContract({
@@ -1276,14 +773,14 @@ async function executeUnstake(
     args: [user, config.paymasterAddress]
   });
 
-  const needsPermit = allowanceForPaymaster < data.unstakeRequest.stkTokenAmount;
+  const needsPermit = allowanceForPaymaster < data.request.stkTokenAmount;
 
   if (!needsPermit) {
     return executorWallet.writeContract({
       address: config.paymasterAddress,
       abi: PAYMASTER_ABI,
-      functionName: "executeRequestUnstake",
-      args: [data.unstakeRequest, data.requestSig, fee]
+      functionName: "executeRequestUnstakeWithAutoclaim",
+      args: [data.request, data.requestSig, fee]
     });
   }
 
@@ -1294,121 +791,9 @@ async function executeUnstake(
   return executorWallet.writeContract({
     address: config.paymasterAddress,
     abi: PAYMASTER_ABI,
-    functionName: "executeRequestUnstakeWithPermit",
+    functionName: "executeRequestUnstakeWithAutoclaimWithPermit",
     args: [
-      data.unstakeRequest,
-      data.permit,
-      data.requestSig,
-      fee
-    ]
-  });
-}
-```
-
-## Execute Claim Staked Shares
-
-```typescript
-async function executeClaimStakedShares(
-  executorWallet: WalletClient,
-  publicClient: PublicClient,
-  data: {
-    claimRequest: ClaimRequest;
-    permit?: PermitSignature;
-    requestSig: `0x${string}`;
-  },
-  config: {
-    paymasterAddress: `0x${string}`;
-    vaultAddress: `0x${string}`; // stkToken - fee is paid in stkToken
-  },
-  fee: bigint
-): Promise<`0x${string}`> {
-  const user = data.claimRequest.user;
-
-  // Check current allowance (stkToken to paymaster)
-  const allowanceForPaymaster = await publicClient.readContract({
-    address: config.vaultAddress,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: [user, config.paymasterAddress]
-  });
-
-  const needsPermit = allowanceForPaymaster < fee;
-
-  if (!needsPermit) {
-    return executorWallet.writeContract({
-      address: config.paymasterAddress,
-      abi: PAYMASTER_ABI,
-      functionName: "executeClaimStakedShares",
-      args: [data.claimRequest, data.requestSig, fee]
-    });
-  }
-
-  if (!data.permit) {
-    throw new Error("Permit required but not provided");
-  }
-
-  return executorWallet.writeContract({
-    address: config.paymasterAddress,
-    abi: PAYMASTER_ABI,
-    functionName: "executeClaimStakedSharesWithPermit",
-    args: [
-      data.claimRequest,
-      data.permit,
-      data.requestSig,
-      fee
-    ]
-  });
-}
-```
-
-## Execute Claim Unstaked Assets
-
-```typescript
-async function executeClaimUnstakedAssets(
-  executorWallet: WalletClient,
-  publicClient: PublicClient,
-  data: {
-    claimRequest: ClaimRequest;
-    permit?: PermitSignature;
-    requestSig: `0x${string}`;
-  },
-  config: {
-    paymasterAddress: `0x${string}`;
-    kTokenAddress: `0x${string}`; // fee is paid in kToken
-  },
-  fee: bigint
-): Promise<`0x${string}`> {
-  const user = data.claimRequest.user;
-
-  // Check current allowance (kToken to paymaster)
-  const allowanceForPaymaster = await publicClient.readContract({
-    address: config.kTokenAddress,
-    abi: ERC20_ABI,
-    functionName: "allowance",
-    args: [user, config.paymasterAddress]
-  });
-
-  const needsPermit = allowanceForPaymaster < fee;
-
-  if (!needsPermit) {
-    return executorWallet.writeContract({
-      address: config.paymasterAddress,
-      abi: PAYMASTER_ABI,
-      functionName: "executeClaimUnstakedAssets",
-      args: [data.claimRequest, data.requestSig, fee]
-    });
-  }
-
-  if (!data.permit) {
-    throw new Error("Permit required but not provided");
-  }
-
-  return executorWallet.writeContract({
-    address: config.paymasterAddress,
-    abi: PAYMASTER_ABI,
-    functionName: "executeClaimUnstakedAssetsWithPermit",
-    args: [
-      data.claimRequest,
+      data.request,
       data.permit,
       data.requestSig,
       fee
@@ -1478,6 +863,40 @@ async function executeAutoclaimUnstakedAssets(
 }
 ```
 
+## Execute Batch Autoclaim
+
+```typescript
+async function executeAutoclaimStakedSharesBatch(
+  executorWallet: WalletClient,
+  config: {
+    paymasterAddress: `0x${string}`;
+  },
+  requestIds: `0x${string}`[]
+): Promise<`0x${string}`> {
+  return executorWallet.writeContract({
+    address: config.paymasterAddress,
+    abi: PAYMASTER_ABI,
+    functionName: "executeAutoclaimStakedSharesBatch",
+    args: [requestIds]
+  });
+}
+
+async function executeAutoclaimUnstakedAssetsBatch(
+  executorWallet: WalletClient,
+  config: {
+    paymasterAddress: `0x${string}`;
+  },
+  requestIds: `0x${string}`[]
+): Promise<`0x${string}`> {
+  return executorWallet.writeContract({
+    address: config.paymasterAddress,
+    abi: PAYMASTER_ABI,
+    functionName: "executeAutoclaimUnstakedAssetsBatch",
+    args: [requestIds]
+  });
+}
+```
+
 ---
 
 # Error Handling
@@ -1526,35 +945,6 @@ async function executeWithErrorHandling<T>(fn: () => Promise<T>): Promise<T> {
 # TypeScript Types
 
 ```typescript
-interface StakeRequest {
-  user: `0x${string}`;
-  nonce: bigint;
-  vault: `0x${string}`;
-  deadline: bigint;
-  recipient: `0x${string}`;
-  maxFee: bigint;
-  kTokenAmount: bigint;
-}
-
-interface UnstakeRequest {
-  user: `0x${string}`;
-  nonce: bigint;
-  vault: `0x${string}`;
-  deadline: bigint;
-  recipient: `0x${string}`;
-  maxFee: bigint;
-  stkTokenAmount: bigint;
-}
-
-interface ClaimRequest {
-  user: `0x${string}`;
-  nonce: bigint;
-  vault: `0x${string}`;
-  deadline: bigint;
-  maxFee: bigint;
-  requestId: `0x${string}`;
-}
-
 interface StakeWithAutoclaimRequest {
   user: `0x${string}`;
   nonce: bigint;
@@ -1614,4 +1004,4 @@ interface AutoclaimAuth {
 
 10. **Autoclaim monitoring**: After a stake/unstake with autoclaim, monitor the vault for batch settlement and execute `executeAutoclaimStakedShares` or `executeAutoclaimUnstakedAssets` once the batch is settled.
 
-11. **Permit skip in contract**: The contract's `_executePermit` internally checks if the current allowance is already sufficient and skips the permit call if so. This prevents failures from permit front-running or replay.
+11. **Batch autoclaim fault tolerance**: Batch autoclaim operations (`executeAutoclaimStakedSharesBatch`, `executeAutoclaimUnstakedAssetsBatch`) are fault-tolerant. If a single claim fails (e.g., not yet settled), it emits `AutoclaimFailed` and continues. Failed claims remain retryable.

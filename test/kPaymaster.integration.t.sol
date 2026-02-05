@@ -221,6 +221,39 @@ contract MockKStakingVault is MockERC20Permit {
         MockERC20Permit(kToken).transfer(request.recipient, assets);
     }
 
+    // IVaultReader functions for autoclaim
+    function getStakeRequest(bytes32 requestId)
+        external
+        view
+        returns (
+            address user,
+            uint128 kTokenAmount,
+            address recipient,
+            bytes32 batchId,
+            uint64 requestTimestamp,
+            uint8 status
+        )
+    {
+        StakeRequest storage req = stakeRequests[requestId];
+        return (req.user, uint128(req.amount), req.recipient, bytes32(0), 0, 0);
+    }
+
+    function getUnstakeRequest(bytes32 requestId)
+        external
+        view
+        returns (
+            address user,
+            uint128 stkTokenAmount,
+            address recipient,
+            bytes32 batchId,
+            uint64 requestTimestamp,
+            uint8 status
+        )
+    {
+        UnstakeRequest storage req = unstakeRequests[requestId];
+        return (req.user, uint128(req.stkAmount), req.recipient, bytes32(0), 0, 0);
+    }
+
     function closeBatch(bytes32, bool createNew) external {
         if (createNew) {
             currentBatchId = keccak256(abi.encode(block.timestamp, address(this), ++_requestCounter));
@@ -322,8 +355,8 @@ contract kPaymasterIntegrationTest is Test {
         return IkPaymaster.PermitSignature({ value: value, deadline: deadline, v: v, r: r, s: s });
     }
 
-    function _createStakeRequestSignature(
-        IkPaymaster.StakeRequest memory request,
+    function _createStakeWithAutoclaimRequestSignature(
+        IkPaymaster.StakeWithAutoclaimRequest memory request,
         uint256 privateKey
     )
         internal
@@ -332,7 +365,7 @@ contract kPaymasterIntegrationTest is Test {
     {
         bytes32 structHash = keccak256(
             abi.encode(
-                paymaster.STAKE_REQUEST_TYPEHASH(),
+                paymaster.STAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
                 request.vault,
@@ -349,8 +382,8 @@ contract kPaymasterIntegrationTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _createUnstakeRequestSignature(
-        IkPaymaster.UnstakeRequest memory request,
+    function _createUnstakeWithAutoclaimRequestSignature(
+        IkPaymaster.UnstakeWithAutoclaimRequest memory request,
         uint256 privateKey
     )
         internal
@@ -359,7 +392,7 @@ contract kPaymasterIntegrationTest is Test {
     {
         bytes32 structHash = keccak256(
             abi.encode(
-                paymaster.UNSTAKE_REQUEST_TYPEHASH(),
+                paymaster.UNSTAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH(),
                 request.user,
                 request.nonce,
                 request.vault,
@@ -376,32 +409,6 @@ contract kPaymasterIntegrationTest is Test {
         return abi.encodePacked(r, s, v);
     }
 
-    function _createClaimRequestSignature(
-        IkPaymaster.ClaimRequest memory request,
-        uint256 privateKey
-    )
-        internal
-        view
-        returns (bytes memory)
-    {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                paymaster.CLAIM_REQUEST_TYPEHASH(),
-                request.user,
-                request.nonce,
-                request.vault,
-                request.deadline,
-                request.maxFee,
-                request.requestId
-            )
-        );
-
-        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", paymaster.DOMAIN_SEPARATOR(), structHash));
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
-
-        return abi.encodePacked(r, s, v);
-    }
-
     function test_setUp() public view {
         assertEq(paymaster.owner(), owner);
         assertEq(paymaster.treasury(), treasury);
@@ -409,18 +416,31 @@ contract kPaymasterIntegrationTest is Test {
         assertEq(kToken.balanceOf(testUser), 100_000 * _1_USDC);
     }
 
-    function test_fullGaslessStakeFlow() public {
-        bytes32 requestId = _executeGaslessStake(uint96(10_000 * _1_USDC), DEFAULT_FEE);
+    function test_fullGaslessStakeWithAutoclaimFlow() public {
+        // Execute stake with autoclaim
+        bytes32 requestId = _executeGaslessStakeWithAutoclaim(uint96(10_000 * _1_USDC), DEFAULT_FEE);
 
+        // Verify autoclaim is registered
+        assertTrue(paymaster.canAutoclaim(requestId));
+
+        // Settle batch
         vault.settleBatch();
 
-        _executeGaslessClaimStakedShares(requestId);
+        // Execute autoclaim
+        uint256 userStkBefore = vault.balanceOf(testUser);
+
+        vm.prank(executor);
+        paymaster.executeAutoclaimStakedShares(requestId);
+
+        // Verify user received shares and autoclaim is marked as executed
+        assertGt(vault.balanceOf(testUser), userStkBefore);
+        assertFalse(paymaster.canAutoclaim(requestId));
     }
 
-    function _executeGaslessStake(uint96 stakeAmount, uint96 fee) internal returns (bytes32 requestId) {
+    function _executeGaslessStakeWithAutoclaim(uint96 stakeAmount, uint96 fee) internal returns (bytes32 requestId) {
         uint256 deadline = block.timestamp + 1 hours;
 
-        IkPaymaster.StakeRequest memory stakeRequest = IkPaymaster.StakeRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory stakeRequest = IkPaymaster.StakeWithAutoclaimRequest({
             user: testUser,
             nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
@@ -441,13 +461,13 @@ contract kPaymasterIntegrationTest is Test {
             USER_PRIVATE_KEY
         );
 
-        bytes memory requestSig = _createStakeRequestSignature(stakeRequest, USER_PRIVATE_KEY);
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(stakeRequest, USER_PRIVATE_KEY);
 
         uint256 userKTokenBefore = kToken.balanceOf(testUser);
         uint256 treasuryBefore = kToken.balanceOf(treasury);
 
         vm.prank(executor);
-        requestId = paymaster.executeRequestStakeWithPermit(stakeRequest, permit, requestSig, fee);
+        requestId = paymaster.executeRequestStakeWithAutoclaimWithPermit(stakeRequest, permit, requestSig, fee);
 
         uint256 feeCollected = kToken.balanceOf(treasury) - treasuryBefore;
 
@@ -455,50 +475,39 @@ contract kPaymasterIntegrationTest is Test {
         assertEq(feeCollected, fee);
     }
 
-    function _executeGaslessClaimStakedShares(bytes32 requestId) internal {
-        uint256 claimDeadline = block.timestamp + 1 hours;
-        uint96 claimFee = 5 * 1e6;
-
-        IkPaymaster.ClaimRequest memory claimRequest = IkPaymaster.ClaimRequest({
-            user: testUser,
-            nonce: uint96(paymaster.nonces(testUser)),
-            vault: address(vault),
-            deadline: uint96(claimDeadline),
-            maxFee: DEFAULT_MAX_FEE,
-            requestId: requestId
-        });
-
-        // User approves paymaster for fee
-        vm.prank(testUser);
-        vault.approve(address(paymaster), claimFee);
-
-        bytes memory claimSig = _createClaimRequestSignature(claimRequest, USER_PRIVATE_KEY);
-
-        uint256 userStkBefore = vault.balanceOf(testUser);
-
-        vm.prank(executor);
-        paymaster.executeClaimStakedShares(claimRequest, claimSig, claimFee);
-
-        assertGt(vault.balanceOf(testUser), userStkBefore);
-    }
-
-    function test_fullGaslessUnstakeFlow() public {
+    function test_fullGaslessUnstakeWithAutoclaimFlow() public {
         _performDirectStake(testUser, 20_000 * _1_USDC);
 
         uint256 userStkBalance = vault.balanceOf(testUser);
         require(userStkBalance > 0, "No stkTokens to unstake");
 
-        bytes32 requestId = _executeGaslessUnstake(uint96(userStkBalance / 2), DEFAULT_FEE);
+        // Execute unstake with autoclaim
+        bytes32 requestId = _executeGaslessUnstakeWithAutoclaim(uint96(userStkBalance / 2), DEFAULT_FEE);
 
+        // Verify autoclaim is registered
+        assertTrue(paymaster.canAutoclaim(requestId));
+
+        // Settle batch
         vault.settleBatch();
 
-        _executeGaslessClaimUnstakedAssets(requestId);
+        // Execute autoclaim
+        uint256 userKTokenBefore = kToken.balanceOf(testUser);
+
+        vm.prank(executor);
+        paymaster.executeAutoclaimUnstakedAssets(requestId);
+
+        // Verify user received kTokens and autoclaim is marked as executed
+        assertGt(kToken.balanceOf(testUser), userKTokenBefore);
+        assertFalse(paymaster.canAutoclaim(requestId));
     }
 
-    function _executeGaslessUnstake(uint96 unstakeAmount, uint96 fee) internal returns (bytes32 requestId) {
+    function _executeGaslessUnstakeWithAutoclaim(uint96 unstakeAmount, uint96 fee)
+        internal
+        returns (bytes32 requestId)
+    {
         uint256 deadline = block.timestamp + 1 hours;
 
-        IkPaymaster.UnstakeRequest memory unstakeRequest = IkPaymaster.UnstakeRequest({
+        IkPaymaster.UnstakeWithAutoclaimRequest memory unstakeRequest = IkPaymaster.UnstakeWithAutoclaimRequest({
             user: testUser,
             nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
@@ -519,13 +528,13 @@ contract kPaymasterIntegrationTest is Test {
             USER_PRIVATE_KEY
         );
 
-        bytes memory requestSig = _createUnstakeRequestSignature(unstakeRequest, USER_PRIVATE_KEY);
+        bytes memory requestSig = _createUnstakeWithAutoclaimRequestSignature(unstakeRequest, USER_PRIVATE_KEY);
 
         uint256 userStkBefore = vault.balanceOf(testUser);
         uint256 treasuryBefore = vault.balanceOf(treasury);
 
         vm.prank(executor);
-        requestId = paymaster.executeRequestUnstakeWithPermit(unstakeRequest, permitSig, requestSig, fee);
+        requestId = paymaster.executeRequestUnstakeWithAutoclaimWithPermit(unstakeRequest, permitSig, requestSig, fee);
 
         uint256 feeCollected = vault.balanceOf(treasury) - treasuryBefore;
 
@@ -533,38 +542,11 @@ contract kPaymasterIntegrationTest is Test {
         assertEq(feeCollected, fee);
     }
 
-    function _executeGaslessClaimUnstakedAssets(bytes32 requestId) internal {
-        uint256 claimDeadline = block.timestamp + 1 hours;
-        uint96 claimFee = 5 * 1e6;
-
-        IkPaymaster.ClaimRequest memory claimRequest = IkPaymaster.ClaimRequest({
-            user: testUser,
-            nonce: uint96(paymaster.nonces(testUser)),
-            vault: address(vault),
-            deadline: uint96(claimDeadline),
-            maxFee: DEFAULT_MAX_FEE,
-            requestId: requestId
-        });
-
-        // User approves paymaster for fee
-        vm.prank(testUser);
-        kToken.approve(address(paymaster), claimFee);
-
-        bytes memory claimSig = _createClaimRequestSignature(claimRequest, USER_PRIVATE_KEY);
-
-        uint256 userKTokenBefore = kToken.balanceOf(testUser);
-
-        vm.prank(executor);
-        paymaster.executeClaimUnstakedAssets(claimRequest, claimSig, claimFee);
-
-        assertGt(kToken.balanceOf(testUser), userKTokenBefore);
-    }
-
     function test_revert_expiredDeadline() public {
         uint96 stakeAmount = 1000 * 1e6;
         uint256 permitDeadline = block.timestamp + 1 hours;
 
-        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: testUser,
             nonce: 0,
             vault: address(vault),
@@ -585,18 +567,18 @@ contract kPaymasterIntegrationTest is Test {
             USER_PRIVATE_KEY
         );
 
-        bytes memory requestSig = _createStakeRequestSignature(request, USER_PRIVATE_KEY);
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(request, USER_PRIVATE_KEY);
 
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_RequestExpired.selector);
-        paymaster.executeRequestStakeWithPermit(request, permit, requestSig, DEFAULT_FEE);
+        paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, requestSig, DEFAULT_FEE);
     }
 
     function test_revert_invalidNonce() public {
         uint96 stakeAmount = 1000 * 1e6;
         uint256 deadline = block.timestamp + 1 hours;
 
-        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: testUser,
             nonce: 999, // Wrong nonce
             vault: address(vault),
@@ -617,15 +599,15 @@ contract kPaymasterIntegrationTest is Test {
             USER_PRIVATE_KEY
         );
 
-        bytes memory requestSig = _createStakeRequestSignature(request, USER_PRIVATE_KEY);
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(request, USER_PRIVATE_KEY);
 
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_InvalidNonce.selector);
-        paymaster.executeRequestStakeWithPermit(request, permit, requestSig, DEFAULT_FEE);
+        paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, requestSig, DEFAULT_FEE);
     }
 
     function test_revert_notTrustedExecutor() public {
-        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: testUser,
             nonce: 0,
             vault: address(vault),
@@ -643,14 +625,14 @@ contract kPaymasterIntegrationTest is Test {
         address randomUser = makeAddr("random");
         vm.prank(randomUser);
         vm.expectRevert(IkPaymaster.kPaymaster_NotTrustedExecutor.selector);
-        paymaster.executeRequestStakeWithPermit(request, permit, "", DEFAULT_FEE);
+        paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, "", DEFAULT_FEE);
     }
 
     function test_revert_insufficientAmountForFee() public {
         uint96 tinyAmount = 1;
         uint256 deadline = block.timestamp + 1 hours;
 
-        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
             user: testUser,
             nonce: 0,
             vault: address(vault),
@@ -671,29 +653,29 @@ contract kPaymasterIntegrationTest is Test {
             USER_PRIVATE_KEY
         );
 
-        bytes memory requestSig = _createStakeRequestSignature(request, USER_PRIVATE_KEY);
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(request, USER_PRIVATE_KEY);
 
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_InsufficientAmountForFee.selector);
-        paymaster.executeRequestStakeWithPermit(request, permit, requestSig, DEFAULT_FEE);
+        paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, requestSig, DEFAULT_FEE);
     }
 
     function test_nonceIncrementsAfterEachOperation() public {
         assertEq(paymaster.nonces(testUser), 0);
 
-        _executeGaslessStakeSimple(testUser, uint96(1000 * _1_USDC), uint96(10 * _1_USDC));
+        _executeGaslessStakeWithAutoclaimSimple(testUser, uint96(1000 * _1_USDC), uint96(10 * _1_USDC));
         assertEq(paymaster.nonces(testUser), 1);
 
-        _executeGaslessStakeSimple(testUser, uint96(1000 * _1_USDC), uint96(10 * _1_USDC));
+        _executeGaslessStakeWithAutoclaimSimple(testUser, uint96(1000 * _1_USDC), uint96(10 * _1_USDC));
         assertEq(paymaster.nonces(testUser), 2);
     }
 
-    function test_zeroFeeStake() public {
+    function test_zeroFeeStakeWithAutoclaim() public {
         uint96 stakeAmount = 1000 * 1e6;
         uint96 fee = 0;
         uint256 deadline = block.timestamp + 1 hours;
 
-        IkPaymaster.StakeRequest memory stakeRequest = IkPaymaster.StakeRequest({
+        IkPaymaster.StakeWithAutoclaimRequest memory stakeRequest = IkPaymaster.StakeWithAutoclaimRequest({
             user: testUser,
             nonce: uint96(paymaster.nonces(testUser)),
             vault: address(vault),
@@ -714,50 +696,58 @@ contract kPaymasterIntegrationTest is Test {
             USER_PRIVATE_KEY
         );
 
-        bytes memory requestSig = _createStakeRequestSignature(stakeRequest, USER_PRIVATE_KEY);
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(stakeRequest, USER_PRIVATE_KEY);
 
         uint256 treasuryBefore = kToken.balanceOf(treasury);
 
         vm.prank(executor);
-        paymaster.executeRequestStakeWithPermit(stakeRequest, permit, requestSig, fee);
+        bytes32 requestId = paymaster.executeRequestStakeWithAutoclaimWithPermit(stakeRequest, permit, requestSig, fee);
 
         assertEq(kToken.balanceOf(treasury), treasuryBefore); // No fee collected
+        assertTrue(paymaster.canAutoclaim(requestId)); // Autoclaim is still registered
     }
 
-    function _performDirectStake(address user, uint256 amount) internal {
-        vm.startPrank(user);
+    function _performDirectStake(address userAddr, uint256 amount) internal {
+        vm.startPrank(userAddr);
         kToken.approve(address(vault), amount);
-        bytes32 requestId = vault.requestStake(user, user, amount);
+        bytes32 requestId = vault.requestStake(userAddr, userAddr, amount);
         vm.stopPrank();
 
         vault.settleBatch();
 
-        vm.prank(user);
+        vm.prank(userAddr);
         vault.claimStakedShares(requestId);
     }
 
-    function _executeGaslessStakeSimple(address user, uint96 amount, uint96 fee) internal returns (bytes32) {
+    function _executeGaslessStakeWithAutoclaimSimple(
+        address userAddr,
+        uint96 amount,
+        uint96 fee
+    )
+        internal
+        returns (bytes32)
+    {
         uint256 deadline = block.timestamp + 1 hours;
-        uint256 tokenNonce = kToken.nonces(user);
+        uint256 tokenNonce = kToken.nonces(userAddr);
 
-        IkPaymaster.StakeRequest memory request = IkPaymaster.StakeRequest({
-            user: user,
-            nonce: uint96(paymaster.nonces(user)),
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
+            user: userAddr,
+            nonce: uint96(paymaster.nonces(userAddr)),
             vault: address(vault),
             deadline: uint96(deadline),
             maxFee: DEFAULT_MAX_FEE,
             kTokenAmount: amount,
-            recipient: user
+            recipient: userAddr
         });
 
         // Single permit to paymaster for full amount
         IkPaymaster.PermitSignature memory permit = _createPermitSignature(
-            address(kToken), user, address(paymaster), amount, deadline, tokenNonce, USER_PRIVATE_KEY
+            address(kToken), userAddr, address(paymaster), amount, deadline, tokenNonce, USER_PRIVATE_KEY
         );
 
-        bytes memory requestSig = _createStakeRequestSignature(request, USER_PRIVATE_KEY);
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(request, USER_PRIVATE_KEY);
 
         vm.prank(executor);
-        return paymaster.executeRequestStakeWithPermit(request, permit, requestSig, fee);
+        return paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, requestSig, fee);
     }
 }
