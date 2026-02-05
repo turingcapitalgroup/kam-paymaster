@@ -10,4 +10,3 @@ name = "kam"
 version = "1.0"
 git = "https://github.com/turingcapitalgroup/kam.git"
 rev = "3b9d10447d585b82c825dc1adff8649e35982447"
-
