@@ -6,7 +6,7 @@ import { stdJson } from "forge-std/StdJson.sol";
 import { console2 as console } from "forge-std/console2.sol";
 
 /// @title DeploymentManager
-/// @notice Manages deployment configuration and output for KamPaymaster
+/// @notice Manages deployment configuration and output for kPaymaster
 abstract contract DeploymentManager is Script {
     using stdJson for string;
 
@@ -26,6 +26,7 @@ abstract contract DeploymentManager is Script {
     }
 
     struct RoleAddresses {
+        address deployer;
         address owner;
         address treasury;
         address executor;
@@ -43,7 +44,7 @@ abstract contract DeploymentManager is Script {
     }
 
     struct ContractAddresses {
-        address kamPaymaster;
+        address kPaymaster;
     }
 
     function getCurrentNetwork() internal view returns (string memory) {
@@ -78,6 +79,7 @@ abstract contract DeploymentManager is Script {
         config.chainId = json.readUint(".chainId");
 
         // Parse role addresses
+        config.roles.deployer = json.readAddress(".roles.deployer");
         config.roles.owner = json.readAddress(".roles.owner");
         config.roles.treasury = json.readAddress(".roles.treasury");
         config.roles.executor = json.readAddress(".roles.executor");
@@ -105,8 +107,8 @@ abstract contract DeploymentManager is Script {
         output.timestamp = json.readUint(".timestamp");
 
         // Parse contract addresses
-        if (json.keyExists(".contracts.kamPaymaster")) {
-            output.contracts.kamPaymaster = json.readAddress(".contracts.kamPaymaster");
+        if (json.keyExists(".contracts.kPaymaster")) {
+            output.contracts.kPaymaster = json.readAddress(".contracts.kPaymaster");
         }
 
         return output;
@@ -123,8 +125,8 @@ abstract contract DeploymentManager is Script {
         output.timestamp = block.timestamp;
 
         // Update the specific contract address
-        if (keccak256(bytes(contractName)) == keccak256(bytes("kamPaymaster"))) {
-            output.contracts.kamPaymaster = contractAddress;
+        if (keccak256(bytes(contractName)) == keccak256(bytes("kPaymaster"))) {
+            output.contracts.kPaymaster = contractAddress;
         }
 
         string memory json = _serializeDeploymentOutput(output);
@@ -139,13 +141,14 @@ abstract contract DeploymentManager is Script {
         json = string.concat(json, '"network":"', output.network, '",');
         json = string.concat(json, '"timestamp":', vm.toString(output.timestamp), ",");
         json = string.concat(json, '"contracts":{');
-        json = string.concat(json, '"kamPaymaster":"', vm.toString(output.contracts.kamPaymaster), '"');
+        json = string.concat(json, '"kPaymaster":"', vm.toString(output.contracts.kPaymaster), '"');
         json = string.concat(json, "}}");
 
         return json;
     }
 
     function validateConfig(NetworkConfig memory config) internal pure {
+        require(config.roles.deployer != address(0), "Missing deployer address");
         require(config.roles.owner != address(0), "Missing owner address");
         require(config.roles.treasury != address(0), "Missing treasury address");
         require(config.roles.executor != address(0), "Missing executor address");
@@ -157,6 +160,7 @@ abstract contract DeploymentManager is Script {
         console.log("=== DEPLOYMENT CONFIGURATION ===");
         console.log("Network:", config.network);
         console.log("Chain ID:", config.chainId);
+        console.log("Deployer:", config.roles.deployer);
         console.log("Owner:", config.roles.owner);
         console.log("Treasury:", config.roles.treasury);
         console.log("Executor:", config.roles.executor);
@@ -195,6 +199,7 @@ abstract contract DeploymentManager is Script {
         if (!verbose) return;
 
         console.log("--- ROLE ADDRESSES ---");
+        console.log("Deployer:         ", config.roles.deployer);
         console.log("Owner:            ", config.roles.owner);
         console.log("Treasury:         ", config.roles.treasury);
         console.log("Executor:         ", config.roles.executor);

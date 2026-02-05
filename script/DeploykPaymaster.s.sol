@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import { KamPaymaster } from "../src/KamPaymaster.sol";
+import { kPaymaster } from "../src/kPaymaster.sol";
 import { DeploymentManager } from "./utils/DeploymentManager.sol";
-import { Script, console2 } from "forge-std/Script.sol";
+import { Script } from "forge-std/Script.sol";
 
-/// @title DeployKamPaymasterScript
-/// @notice Script to deploy the KamPaymaster contract using the deployment manager pattern
-contract DeployKamPaymasterScript is Script, DeploymentManager {
+/// @title DeploykPaymasterScript
+/// @notice Script to deploy the kPaymaster contract using the deployment manager pattern
+contract DeploykPaymasterScript is Script, DeploymentManager {
     struct PaymasterDeployment {
-        address kamPaymaster;
+        address kPaymaster;
     }
 
-    /// @notice Deploy KamPaymaster contract
+    /// @notice Deploy kPaymaster contract
     /// @param writeToJson If true, writes addresses to JSON (for real deployments). If false, only returns values (for
     /// tests)
     /// @return deployment Struct containing deployed address
@@ -22,15 +22,15 @@ contract DeployKamPaymasterScript is Script, DeploymentManager {
         validateConfig(config);
 
         // Log script header and configuration
-        logScriptHeader("DeployKamPaymaster");
+        logScriptHeader("DeploykPaymaster");
         logRoles(config);
-        logBroadcaster(config.roles.owner);
+        logBroadcaster(config.roles.deployer);
         logExecutionStart();
 
-        vm.startBroadcast(config.roles.owner);
+        vm.startBroadcast(config.roles.deployer);
 
-        // Deploy KamPaymaster with registry from config
-        KamPaymaster paymaster = new KamPaymaster(config.roles.owner, config.roles.treasury, config.contracts.registry);
+        // Deploy kPaymaster with registry from config
+        kPaymaster paymaster = new kPaymaster(config.roles.owner, config.roles.treasury, config.contracts.registry);
 
         // Set trusted executor
         paymaster.setTrustedExecutor(config.roles.executor, true);
@@ -38,15 +38,15 @@ contract DeployKamPaymasterScript is Script, DeploymentManager {
         vm.stopBroadcast();
 
         _log("=== DEPLOYMENT COMPLETE ===");
-        _log("KamPaymaster deployed at:", address(paymaster));
+        _log("kPaymaster deployed at:", address(paymaster));
         _log("Network:", config.network);
         _log("Chain ID:", config.chainId);
 
-        deployment = PaymasterDeployment({ kamPaymaster: address(paymaster) });
+        deployment = PaymasterDeployment({ kPaymaster: address(paymaster) });
 
         // Write to JSON only if requested (for real deployments)
         if (writeToJson) {
-            writeContractAddress("kamPaymaster", address(paymaster));
+            writeContractAddress("kPaymaster", address(paymaster));
         }
 
         return deployment;
