@@ -760,7 +760,13 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
             )
         );
 
-        if (!success) revert kPaymaster_PermitFailed();
+        if (!success) {
+            (bool allowanceSuccess, bytes memory allowanceData) =
+                _token.staticcall(abi.encodeWithSignature("allowance(address,address)", _owner, _spender));
+            if (!allowanceSuccess || allowanceData.length < 32 || abi.decode(allowanceData, (uint256)) < _sig.value) {
+                revert kPaymaster_PermitFailed();
+            }
+        }
     }
 
     /// @dev EIP712 domain name
