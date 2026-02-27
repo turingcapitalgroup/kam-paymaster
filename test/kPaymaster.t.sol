@@ -304,6 +304,56 @@ contract kPaymasterTest is Test {
         assertEq(paymaster.nonces(user), 0);
     }
 
+    function test_incrementNonce() public {
+        assertEq(paymaster.nonces(user), 0);
+
+        vm.prank(user);
+        paymaster.incrementNonce();
+        assertEq(paymaster.nonces(user), 1);
+
+        vm.prank(user);
+        paymaster.incrementNonce();
+        assertEq(paymaster.nonces(user), 2);
+    }
+
+    function test_incrementNonce_invalidatesSignature() public {
+        uint96 stakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        // Sign a request with nonce 0
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
+            user: user,
+            nonce: 0,
+            vault: address(vault),
+            deadline: uint96(deadline),
+            maxFee: DEFAULT_MAX_FEE,
+            kTokenAmount: stakeAmount,
+            recipient: user
+        });
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(request, userPrivateKey);
+
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
+            address(kToken), user, address(paymaster), stakeAmount, deadline, kToken.nonces(user), userPrivateKey
+        );
+
+        // User increments nonce to invalidate the signed request
+        vm.prank(user);
+        paymaster.incrementNonce();
+
+        // Executor tries to execute the now-invalid request
+        vm.prank(executor);
+        vm.expectRevert(IkPaymaster.kPaymaster_InvalidNonce.selector);
+        paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, requestSig, fee);
+    }
+
+    function test_incrementNonce_emitsEvent() public {
+        vm.prank(user);
+        vm.expectEmit(true, false, false, true);
+        emit IkPaymaster.NonceIncremented(user, 1);
+        paymaster.incrementNonce();
+    }
+
     function test_domainSeparator() public view {
         bytes32 separator = paymaster.DOMAIN_SEPARATOR();
         assertNotEq(separator, bytes32(0));

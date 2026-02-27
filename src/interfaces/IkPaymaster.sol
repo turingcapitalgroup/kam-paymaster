@@ -61,6 +61,11 @@ interface IkPaymaster {
     /// @param amount The amount rescued
     event TokensRescued(address indexed token, address indexed to, uint256 amount);
 
+    /// @notice Emitted when a user increments their nonce to invalidate outstanding signatures
+    /// @param user The user who incremented their nonce
+    /// @param newNonce The new nonce value
+    event NonceIncremented(address indexed user, uint256 newNonce);
+
     /// @notice Emitted when autoclaim is registered for a request
     /// @param user The user who authorized autoclaim
     /// @param vault The vault address
@@ -402,6 +407,14 @@ interface IkPaymaster {
     /// @param requestId The stake/unstake request ID
     /// @return True if autoclaim is registered, not executed, and not expired
     function canAutoclaim(bytes32 requestId) external view returns (bool);
+
+    /* //////////////////////////////////////////////////////////////
+                          USER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Increment the caller's nonce to invalidate all outstanding signed requests
+    /// @dev Allows users to cancel pending meta-transactions by bumping their nonce
+    function incrementNonce() external;
 
     /* //////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS

@@ -499,6 +499,16 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
     }
 
     /* //////////////////////////////////////////////////////////////
+                          USER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IkPaymaster
+    function incrementNonce() external {
+        uint256 newNonce = ++_nonces[msg.sender];
+        emit NonceIncremented(msg.sender, newNonce);
+    }
+
+    /* //////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
