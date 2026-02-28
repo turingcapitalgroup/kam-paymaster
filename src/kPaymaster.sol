@@ -602,7 +602,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
 
         (bool success, bytes memory returnData) = _request.vault.call(forwardData);
         if (!success) revert kPaymaster_StakeRequestFailed();
-        _kToken.safeApproveWithRetry(_request.vault, 0);
+        _kToken.safeApprove(_request.vault, 0);
 
         _requestId = abi.decode(returnData, (bytes32));
 
@@ -653,9 +653,6 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
             stkToken.safeTransfer(treasury, _fee);
         }
 
-        // Approve vault to pull netAmount
-        stkToken.safeApproveWithRetry(_request.vault, netAmount);
-
         // Forward requestUnstake call (ERC2771 pattern)
         bytes memory forwardData = abi.encodePacked(
             abi.encodeCall(IVault.requestUnstake, (_request.user, _request.recipient, netAmount)), address(this)
@@ -663,7 +660,6 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
 
         (bool success, bytes memory returnData) = _request.vault.call(forwardData);
         if (!success) revert kPaymaster_UnstakeRequestFailed();
-        stkToken.safeApproveWithRetry(_request.vault, 0);
 
         _requestId = abi.decode(returnData, (bytes32));
 
