@@ -28,6 +28,7 @@ exclude_lints = [
     "unsafe-typecast",
     "erc20-unchecked-transfer"
 ]
+lint_on_build=false
 
 [fmt]
 bracket_spacing = true
