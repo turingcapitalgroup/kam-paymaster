@@ -41,3 +41,6 @@ jobs:
 
       - name: Run Forge tests
         run: forge test -vvv
+        env:
+          DEPLOYMENT_BASE_PATH: ${{ secrets.DEPLOYMENT_BASE_PATH }}
+          PAYMASTER_DEPLOYMENT_BASE_PATH: ${{ secrets.PAYMASTER_DEPLOYMENT_BASE_PATH }}
