@@ -499,6 +499,16 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
     }
 
     /* //////////////////////////////////////////////////////////////
+                          USER FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc IkPaymaster
+    function incrementNonce() external {
+        uint256 newNonce = ++_nonces[msg.sender];
+        emit NonceIncremented(msg.sender, newNonce);
+    }
+
+    /* //////////////////////////////////////////////////////////////
                             ADMIN FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
@@ -592,7 +602,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
 
         (bool success, bytes memory returnData) = _request.vault.call(forwardData);
         if (!success) revert kPaymaster_StakeRequestFailed();
-        _kToken.safeApproveWithRetry(_request.vault, 0);
+        _kToken.safeApprove(_request.vault, 0);
 
         _requestId = abi.decode(returnData, (bytes32));
 
@@ -643,9 +653,6 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
             stkToken.safeTransfer(treasury, _fee);
         }
 
-        // Approve vault to pull netAmount
-        stkToken.safeApproveWithRetry(_request.vault, netAmount);
-
         // Forward requestUnstake call (ERC2771 pattern)
         bytes memory forwardData = abi.encodePacked(
             abi.encodeCall(IVault.requestUnstake, (_request.user, _request.recipient, netAmount)), address(this)
@@ -653,7 +660,6 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
 
         (bool success, bytes memory returnData) = _request.vault.call(forwardData);
         if (!success) revert kPaymaster_UnstakeRequestFailed();
-        stkToken.safeApproveWithRetry(_request.vault, 0);
 
         _requestId = abi.decode(returnData, (bytes32));
 
@@ -760,7 +766,13 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
             )
         );
 
-        if (!success) revert kPaymaster_PermitFailed();
+        if (!success) {
+            (bool allowanceSuccess, bytes memory allowanceData) =
+                _token.staticcall(abi.encodeWithSignature("allowance(address,address)", _owner, _spender));
+            if (!allowanceSuccess || allowanceData.length < 32 || abi.decode(allowanceData, (uint256)) < _sig.value) {
+                revert kPaymaster_PermitFailed();
+            }
+        }
     }
 
     /// @dev EIP712 domain name

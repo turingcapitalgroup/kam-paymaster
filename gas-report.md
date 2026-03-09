@@ -6,30 +6,30 @@
 
 | Deployment Cost | Deployment Size |
 |-----------------|-----------------|
-| 3,293,818       | 15,503          |
+| 2,542,261       | 11,939          |
 
 | Function Name                                | Min     | Avg     | Median  | Max     | # Calls |
 |----------------------------------------------|---------|---------|---------|---------|---------|
-| DOMAIN_SEPARATOR                             | 374     | 374     | 374     | 374     | 31      |
-| STAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH        | 284     | 284     | 284     | 284     | 22      |
-| UNSTAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH      | 304     | 304     | 304     | 304     | 8       |
-| canAutoclaim                                 | 2,676   | 2,676   | 2,676   | 2,676   | 29      |
-| executeAutoclaimStakedShares                 | 26,576  | 56,936  | 62,315  | 106,616 | 5       |
-| executeAutoclaimStakedSharesBatch            | 68,873  | 87,894  | 87,894  | 106,915 | 2       |
-| executeAutoclaimUnstakedAssets               | 67,552  | 72,744  | 72,744  | 77,937  | 2       |
-| executeAutoclaimUnstakedAssetsBatch          | 113,645 | 113,645 | 113,645 | 113,645 | 1       |
-| executeRequestStakeWithAutoclaim             | 196,842 | 248,133 | 265,230 | 265,230 | 8       |
-| executeRequestStakeWithAutoclaimBatch        | 386,982 | 386,982 | 386,982 | 386,982 | 1       |
-| executeRequestStakeWithAutoclaimWithPermit   | 28,330  | 145,237 | 99,225  | 299,233 | 14      |
-| executeRequestUnstakeWithAutoclaim           | 181,236 | 215,433 | 215,436 | 249,624 | 4       |
-| executeRequestUnstakeWithAutoclaimBatch      | 369,755 | 369,755 | 369,755 | 369,755 | 1       |
-| executeRequestUnstakeWithAutoclaimWithPermit | 268,905 | 276,364 | 276,364 | 283,823 | 2       |
-| getAutoclaimAuth                             | 2,876   | 2,876   | 2,876   | 2,876   | 1       |
-| isTrustedExecutor                            | 2,641   | 2,641   | 2,641   | 2,641   | 4       |
-| nonces                                       | 2,617   | 2,617   | 2,617   | 2,617   | 12      |
-| owner                                        | 2,383   | 2,383   | 2,383   | 2,383   | 3       |
-| rescueTokens                                 | 52,785  | 52,785  | 52,785  | 52,785  | 1       |
-| setTreasury                                  | 23,777  | 26,978  | 26,978  | 30,180  | 2       |
-| setTrustedExecutor                           | 26,008  | 47,343  | 47,920  | 47,920  | 38      |
-| transferOwnership                            | 28,541  | 28,541  | 28,541  | 28,541  | 1       |
-| treasury                                     | 2,425   | 2,425   | 2,425   | 2,425   | 3       |
+| DOMAIN_SEPARATOR                             | 332     | 332     | 332     | 332     | 31      |
+| STAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH        | 549     | 549     | 549     | 549     | 22      |
+| UNSTAKE_WITH_AUTOCLAIM_REQUEST_TYPEHASH      | 835     | 835     | 835     | 835     | 8       |
+| canAutoclaim                                 | 2,403   | 2,403   | 2,403   | 2,403   | 29      |
+| executeAutoclaimStakedShares                 | 26,425  | 60,359  | 61,406  | 126,076 | 5       |
+| executeAutoclaimStakedSharesBatch            | 68,543  | 86,825  | 86,825  | 105,107 | 2       |
+| executeAutoclaimUnstakedAssets               | 66,643  | 100,075 | 100,075 | 133,507 | 2       |
+| executeAutoclaimUnstakedAssetsBatch          | 111,441 | 111,441 | 111,441 | 111,441 | 1       |
+| executeRequestStakeWithAutoclaim             | 194,214 | 245,505 | 262,602 | 262,602 | 8       |
+| executeRequestStakeWithAutoclaimBatch        | 381,788 | 381,788 | 381,788 | 381,788 | 1       |
+| executeRequestStakeWithAutoclaimWithPermit   | 28,330  | 222,886 | 108,439 | 552,766 | 14      |
+| executeRequestUnstakeWithAutoclaim           | 178,735 | 212,932 | 212,935 | 247,123 | 4       |
+| executeRequestUnstakeWithAutoclaimBatch      | 364,324 | 364,324 | 364,324 | 364,324 | 1       |
+| executeRequestUnstakeWithAutoclaimWithPermit | 280,532 | 354,795 | 354,795 | 429,059 | 2       |
+| getAutoclaimAuth                             | 2,784   | 2,784   | 2,784   | 2,784   | 1       |
+| isTrustedExecutor                            | 2,660   | 2,660   | 2,660   | 2,660   | 4       |
+| nonces                                       | 2,714   | 2,714   | 2,714   | 2,714   | 12      |
+| owner                                        | 2,657   | 2,657   | 2,657   | 2,657   | 3       |
+| rescueTokens                                 | 52,838  | 52,838  | 52,838  | 52,838  | 1       |
+| setTreasury                                  | 24,238  | 27,432  | 27,432  | 30,627  | 2       |
+| setTrustedExecutor                           | 26,111  | 47,446  | 48,023  | 48,023  | 38      |
+| transferOwnership                            | 29,021  | 29,021  | 29,021  | 29,021  | 1       |
+| treasury                                     | 2,499   | 2,499   | 2,499   | 2,499   | 3       |
