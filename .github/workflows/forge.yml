@@ -35,6 +35,9 @@ jobs:
 
       - name: Run Forge build
         run: forge build --sizes
+        env: 
+          DEPLOYMENT_BASE_PATH: ${{ secrets.DEPLOYMENT_BASE_PATH }}
+          PAYMASTER_DEPLOYMENT_BASE_PATH: ${{ secrets.PAYMASTER_DEPLOYMENT_BASE_PATH}}
 
       - name: Run Forge tests
         run: forge test -vvv
