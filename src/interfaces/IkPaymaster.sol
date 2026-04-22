@@ -147,6 +147,9 @@ interface IkPaymaster {
     /// @notice Thrown when batch size exceeds maximum or is zero
     error kPaymaster_BatchTooLarge();
 
+    /// @notice Thrown when the paymaster is not the vault's trusted forwarder
+    error kPaymaster_NotTrustedForwarder();
+
     /* //////////////////////////////////////////////////////////////
                                 STRUCTS
     //////////////////////////////////////////////////////////////*/

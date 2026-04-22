@@ -573,6 +573,8 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
         // Validate vault is registered in the protocol
         if (!registry.isVault(_request.vault)) revert kPaymaster_VaultNotRegistered();
 
+        if (!IVault(_request.vault).isTrustedForwarder(address(this))) revert kPaymaster_NotTrustedForwarder();
+
         if (_request.kTokenAmount <= _fee) revert kPaymaster_InsufficientAmountForFee();
 
         uint256 netAmount;
@@ -631,6 +633,8 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
 
         // Validate vault is registered in the protocol
         if (!registry.isVault(_request.vault)) revert kPaymaster_VaultNotRegistered();
+
+        if (!IVault(_request.vault).isTrustedForwarder(address(this))) revert kPaymaster_NotTrustedForwarder();
 
         address stkToken = _request.vault;
 
