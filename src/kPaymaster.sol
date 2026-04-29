@@ -316,104 +316,58 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
     }
 
     /// @inheritdoc IkPaymaster
-    function executeAutoclaimStakedShares(bytes32 _requestId) external onlyTrustedExecutor {
+    function executeAutoclaim(bytes32 _requestId, AutoclaimType _claimType) external onlyTrustedExecutor {
         _lockReentrant();
 
         AutoclaimAuth storage auth = _autoclaimRegistry[_requestId];
+        bool expectStake = (_claimType == AutoclaimType.StakedShares);
 
+        // Granular reverts so callers know which precondition failed.
         if (auth.vault == address(0)) revert kPaymaster_AutoclaimNotRegistered();
-        if (!auth.isStake) revert kPaymaster_AutoclaimNotRegistered();
+        if (auth.isStake != expectStake) revert kPaymaster_AutoclaimNotRegistered();
         if (auth.executed) revert kPaymaster_AutoclaimAlreadyExecuted();
         if (!registry.isVault(auth.vault)) revert kPaymaster_VaultNotRegistered();
-        // Note: If vault is deregistered after autoclaim registration, user must claim directly from vault
 
-        auth.executed = true;
+        (bool success, address user, address vault) = _doAutoclaim(_requestId, _claimType, auth);
+        if (!success) revert kPaymaster_AutoclaimRevert();
 
-        // Fetch user from vault's stake request
-        BaseVaultTypes.StakeRequest memory stakeRequest = IVaultReader(auth.vault).getStakeRequest(_requestId);
-        address user = stakeRequest.user;
-
-        // Forward claim to vault (ERC2771 pattern)
-        bytes memory forwardData = abi.encodePacked(abi.encodeCall(IVaultClaim.claimStakedShares, (_requestId)), user);
-
-        (bool success,) = auth.vault.call(forwardData);
-        if (!success) revert kPaymaster_ClaimStakedSharesFailed();
-
-        // No fee collection - claim fee was paid upfront during request
-
-        emit AutoclaimExecuted(user, auth.vault, _requestId, true);
-        emit GaslessStakedSharesClaimed(user, auth.vault, _requestId, 0);
+        emit AutoclaimExecuted(user, vault, _requestId, _claimType);
 
         _unlockReentrant();
     }
 
     /// @inheritdoc IkPaymaster
-    function executeAutoclaimUnstakedAssets(bytes32 _requestId) external onlyTrustedExecutor {
-        _lockReentrant();
-
-        AutoclaimAuth storage auth = _autoclaimRegistry[_requestId];
-
-        if (auth.vault == address(0)) revert kPaymaster_AutoclaimNotRegistered();
-        if (auth.isStake) revert kPaymaster_AutoclaimNotRegistered();
-        if (auth.executed) revert kPaymaster_AutoclaimAlreadyExecuted();
-        if (!registry.isVault(auth.vault)) revert kPaymaster_VaultNotRegistered();
-        // Note: If vault is deregistered after autoclaim registration, user must claim directly from vault
-
-        auth.executed = true;
-
-        // Fetch user from vault's unstake request
-        BaseVaultTypes.UnstakeRequest memory unstakeRequest = IVaultReader(auth.vault).getUnstakeRequest(_requestId);
-        address user = unstakeRequest.user;
-
-        // Forward claim to vault (ERC2771 pattern)
-        bytes memory forwardData = abi.encodePacked(abi.encodeCall(IVaultClaim.claimUnstakedAssets, (_requestId)), user);
-
-        (bool success,) = auth.vault.call(forwardData);
-        if (!success) revert kPaymaster_ClaimUnstakedAssetsFailed();
-
-        // No fee collection - claim fee was paid upfront during request
-        emit AutoclaimExecuted(user, auth.vault, _requestId, false);
-        emit GaslessUnstakedAssetsClaimed(user, auth.vault, _requestId, 0);
-
-        _unlockReentrant();
-    }
-
-    /// @inheritdoc IkPaymaster
-    function executeAutoclaimStakedSharesBatch(bytes32[] calldata _requestIds) external onlyTrustedExecutor {
+    function executeAutoclaimBatch(
+        bytes32[] calldata _requestIds,
+        AutoclaimType _claimType
+    )
+        external
+        onlyTrustedExecutor
+    {
         _lockReentrant();
 
         uint256 len = _requestIds.length;
         if (len == 0 || len > MAX_BATCH_SIZE) revert kPaymaster_BatchTooLarge();
+        bool expectStake = (_claimType == AutoclaimType.StakedShares);
+
         for (uint256 i; i < len;) {
             bytes32 requestId = _requestIds[i];
             AutoclaimAuth storage auth = _autoclaimRegistry[requestId];
 
-            // Skip invalid or already executed requests
-            if (auth.vault == address(0) || !auth.isStake || auth.executed || !registry.isVault(auth.vault)) {
+            // Skip on validation failure (mirrors granular reverts in `executeAutoclaim`).
+            if (
+                auth.vault == address(0) || auth.isStake != expectStake || auth.executed
+                    || !registry.isVault(auth.vault)
+            ) {
                 unchecked {
                     ++i;
                 }
                 continue;
             }
 
-            // Fetch user from vault's stake request
-            BaseVaultTypes.StakeRequest memory stakeRequest = IVaultReader(auth.vault).getStakeRequest(requestId);
-            address user = stakeRequest.user;
-
-            // Forward claim to vault (ERC2771 pattern)
-            bytes memory forwardData =
-                abi.encodePacked(abi.encodeCall(IVaultClaim.claimStakedShares, (requestId)), user);
-
-            auth.executed = true;
-
-            (bool success,) = auth.vault.call(forwardData);
-            if (success) {
-                emit AutoclaimExecuted(user, auth.vault, requestId, true);
-                emit GaslessStakedSharesClaimed(user, auth.vault, requestId, 0);
-            } else {
-                auth.executed = false;
-                emit AutoclaimFailed(auth.vault, requestId, true);
-            }
+            (bool success, address user, address vault) = _doAutoclaim(requestId, _claimType, auth);
+            if (success) emit AutoclaimExecuted(user, vault, requestId, _claimType);
+            else emit AutoclaimFailed(vault, requestId, _claimType);
 
             unchecked {
                 ++i;
@@ -423,49 +377,40 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
         _unlockReentrant();
     }
 
-    /// @inheritdoc IkPaymaster
-    function executeAutoclaimUnstakedAssetsBatch(bytes32[] calldata _requestIds) external onlyTrustedExecutor {
-        _lockReentrant();
+    /// @notice Performs the claim work after validation. Shared by single + batch entry points.
+    /// @dev Validation is the caller's responsibility — single reverts on failure, batch skips.
+    ///      Sets `auth.executed = true` before the call and rolls back to `false` if the
+    ///      downstream vault call reverts so the request can be retried later.
+    /// @param _requestId Stake or unstake request id
+    /// @param _claimType Discriminator selecting the reader function and claim selector
+    /// @param auth Storage pointer to the registry entry (already validated by caller)
+    /// @return success True if the downstream vault call succeeded
+    /// @return user The request owner read from the vault's reader
+    /// @return vault The vault address from the registry entry
+    function _doAutoclaim(
+        bytes32 _requestId,
+        AutoclaimType _claimType,
+        AutoclaimAuth storage auth
+    )
+        internal
+        returns (bool success, address user, address vault)
+    {
+        vault = auth.vault;
+        auth.executed = true;
 
-        uint256 len = _requestIds.length;
-        if (len == 0 || len > MAX_BATCH_SIZE) revert kPaymaster_BatchTooLarge();
-        for (uint256 i; i < len;) {
-            bytes32 requestId = _requestIds[i];
-            AutoclaimAuth storage auth = _autoclaimRegistry[requestId];
-
-            // Skip invalid or already executed requests
-            if (auth.vault == address(0) || auth.isStake || auth.executed || !registry.isVault(auth.vault)) {
-                unchecked {
-                    ++i;
-                }
-                continue;
-            }
-
-            // Fetch user from vault's unstake request
-            BaseVaultTypes.UnstakeRequest memory unstakeRequest = IVaultReader(auth.vault).getUnstakeRequest(requestId);
-            address user = unstakeRequest.user;
-
-            // Forward claim to vault (ERC2771 pattern)
-            bytes memory forwardData =
-                abi.encodePacked(abi.encodeCall(IVaultClaim.claimUnstakedAssets, (requestId)), user);
-
-            auth.executed = true;
-
-            (bool success,) = auth.vault.call(forwardData);
-            if (success) {
-                emit AutoclaimExecuted(user, auth.vault, requestId, false);
-                emit GaslessUnstakedAssetsClaimed(user, auth.vault, requestId, 0);
-            } else {
-                auth.executed = false;
-                emit AutoclaimFailed(auth.vault, requestId, false);
-            }
-
-            unchecked {
-                ++i;
-            }
+        // ERC2771 trailing-address pattern: append the request owner so the vault sees them.
+        bytes4 claimSelector;
+        if (_claimType == AutoclaimType.StakedShares) {
+            user = IVaultReader(vault).getStakeRequest(_requestId).user;
+            claimSelector = IVaultClaim.claimStakedShares.selector;
+        } else {
+            user = IVaultReader(vault).getUnstakeRequest(_requestId).user;
+            claimSelector = IVaultClaim.claimUnstakedAssets.selector;
         }
 
-        _unlockReentrant();
+        bytes memory forwardData = abi.encodePacked(abi.encodeWithSelector(claimSelector, _requestId), user);
+        (success,) = vault.call(forwardData);
+        if (!success) auth.executed = false; // rollback so the user / executor can retry later
     }
 
     /* //////////////////////////////////////////////////////////////
@@ -612,7 +557,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
         _autoclaimRegistry[_requestId] = AutoclaimAuth({ vault: _request.vault, isStake: true, executed: false });
 
         emit GaslessStakeRequested(_request.user, _request.vault, _request.kTokenAmount, _fee, _requestId);
-        emit AutoclaimRegistered(_request.user, _request.vault, _requestId, true);
+        emit AutoclaimRegistered(_request.user, _request.vault, _requestId, AutoclaimType.StakedShares);
     }
 
     /// @dev Execute unstake with autoclaim logic
@@ -671,7 +616,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
         _autoclaimRegistry[_requestId] = AutoclaimAuth({ vault: _request.vault, isStake: false, executed: false });
 
         emit GaslessUnstakeRequested(_request.user, _request.vault, _request.stkTokenAmount, _fee, _requestId);
-        emit AutoclaimRegistered(_request.user, _request.vault, _requestId, false);
+        emit AutoclaimRegistered(_request.user, _request.vault, _requestId, AutoclaimType.UnstakedAssets);
     }
 
     /// @dev Validate a stake with autoclaim request

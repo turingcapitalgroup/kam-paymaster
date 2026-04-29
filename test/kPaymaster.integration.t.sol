@@ -303,7 +303,7 @@ contract kPaymasterIntegrationTest is DeploymentBaseTest {
         uint256 userStkBefore = dnVault.balanceOf(testUser);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedShares(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.StakedShares);
 
         // Verify user received shares and autoclaim is consumed
         assertGt(dnVault.balanceOf(testUser), userStkBefore);
@@ -367,7 +367,7 @@ contract kPaymasterIntegrationTest is DeploymentBaseTest {
         uint256 userKTokenBefore = kUSD.balanceOf(testUser);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimUnstakedAssets(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.UnstakedAssets);
 
         // Verify user received kTokens and autoclaim is consumed
         assertGt(kUSD.balanceOf(testUser), userKTokenBefore);

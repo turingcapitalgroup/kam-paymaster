@@ -468,7 +468,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userStkBalanceBefore = dnVault.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedShares(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.StakedShares);
 
         assertGt(dnVault.balanceOf(user), userStkBalanceBefore);
         assertFalse(paymaster.canAutoclaim(requestId));
@@ -524,7 +524,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userKTokenBalanceBefore = kUSD.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimUnstakedAssets(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.UnstakedAssets);
 
         assertGt(kUSD.balanceOf(user), userKTokenBalanceBefore);
         assertFalse(paymaster.canAutoclaim(requestId));
@@ -535,7 +535,7 @@ contract kPaymasterTest is DeploymentBaseTest {
 
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_AutoclaimNotRegistered.selector);
-        paymaster.executeAutoclaimStakedShares(fakeRequestId);
+        paymaster.executeAutoclaim(fakeRequestId, IkPaymaster.AutoclaimType.StakedShares);
     }
 
     function test_revert_autoclaimAlreadyExecuted() public {
@@ -545,11 +545,11 @@ contract kPaymasterTest is DeploymentBaseTest {
         bytes32 requestId = _stakeWithAutoclaimAndSettle(stakeAmount, fee);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedShares(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.StakedShares);
 
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_AutoclaimAlreadyExecuted.selector);
-        paymaster.executeAutoclaimStakedShares(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.StakedShares);
     }
 
     function test_getAutoclaimAuth() public {
@@ -595,7 +595,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userStkBalanceBefore = dnVault.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedSharesBatch(requestIds);
+        paymaster.executeAutoclaimBatch(requestIds, IkPaymaster.AutoclaimType.StakedShares);
 
         for (uint256 i = 0; i < 3; i++) {
             assertFalse(paymaster.canAutoclaim(requestIds[i]));
@@ -617,7 +617,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userKTokenBalanceBefore = kUSD.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimUnstakedAssetsBatch(requestIds);
+        paymaster.executeAutoclaimBatch(requestIds, IkPaymaster.AutoclaimType.UnstakedAssets);
 
         for (uint256 i = 0; i < 3; i++) {
             assertFalse(paymaster.canAutoclaim(requestIds[i]));
@@ -637,7 +637,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         requestIds[2] = keccak256("fake2");
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedSharesBatch(requestIds);
+        paymaster.executeAutoclaimBatch(requestIds, IkPaymaster.AutoclaimType.StakedShares);
 
         assertFalse(paymaster.canAutoclaim(validRequestId));
     }
