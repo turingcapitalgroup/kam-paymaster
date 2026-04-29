@@ -8,6 +8,11 @@ out/
 # Dotenv file
 .env
 
+# AI
+.letta
+.trigrep
+superpowers/
+
 
 # Soldeer
 /dependencies
