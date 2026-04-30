@@ -213,9 +213,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
             address kToken = _getAsset(_requests[i].vault);
             _executePermit(kToken, _requests[i].user, address(this), _permits[i]);
             _requestIds[i] = _executeStakeWithAutoclaim(_requests[i], _requestSigs[i], kToken, _fees[i]);
-            unchecked {
-                ++i;
-            }
+            ++i;
         }
 
         _unlockReentrant();
@@ -246,9 +244,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
             address stkToken = _requests[i].vault;
             _executePermit(stkToken, _requests[i].user, address(this), _permits[i]);
             _requestIds[i] = _executeUnstakeWithAutoclaim(_requests[i], _requestSigs[i], _fees[i]);
-            unchecked {
-                ++i;
-            }
+            ++i;
         }
 
         _unlockReentrant();
@@ -277,9 +273,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
         for (uint256 i; i < len;) {
             address kToken = _getAsset(_requests[i].vault);
             _requestIds[i] = _executeStakeWithAutoclaim(_requests[i], _requestSigs[i], kToken, _fees[i]);
-            unchecked {
-                ++i;
-            }
+            ++i;
         }
 
         _unlockReentrant();
@@ -307,9 +301,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
 
         for (uint256 i; i < len;) {
             _requestIds[i] = _executeUnstakeWithAutoclaim(_requests[i], _requestSigs[i], _fees[i]);
-            unchecked {
-                ++i;
-            }
+            ++i;
         }
 
         _unlockReentrant();
@@ -359,9 +351,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
                 auth.vault == address(0) || auth.isStake != expectStake || auth.executed
                     || !registry.isVault(auth.vault)
             ) {
-                unchecked {
-                    ++i;
-                }
+                ++i;
                 continue;
             }
 
@@ -369,9 +359,7 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
             if (success) emit AutoclaimExecuted(user, vault, requestId, _claimType);
             else emit AutoclaimFailed(vault, requestId, _claimType);
 
-            unchecked {
-                ++i;
-            }
+            ++i;
         }
 
         _unlockReentrant();

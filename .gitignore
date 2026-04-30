@@ -9,6 +9,7 @@ out/
 .env
 
 # AI
+.repo-audit/
 .letta
 .trigrep
 superpowers/
