@@ -511,9 +511,13 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
         if (_request.kTokenAmount <= _fee) revert kPaymaster_InsufficientAmountForFee();
 
         uint256 netAmount;
-        netAmount = _request.kTokenAmount - _fee;
+        unchecked {
+            netAmount = _request.kTokenAmount - _fee;
+        }
 
-        ++_nonces[_request.user];
+        unchecked {
+            ++_nonces[_request.user];
+        }
 
         // Pull full amount from user to paymaster
         _kToken.safeTransferFrom(_request.user, address(this), _request.kTokenAmount);
@@ -570,9 +574,13 @@ contract kPaymaster is IkPaymaster, EIP712, Ownable, OptimizedReentrancyGuardTra
         if (_request.stkTokenAmount <= _fee) revert kPaymaster_InsufficientAmountForFee();
 
         uint256 netAmount;
-        netAmount = _request.stkTokenAmount - _fee;
+        unchecked {
+            netAmount = _request.stkTokenAmount - _fee;
+        }
 
-        ++_nonces[_request.user];
+        unchecked {
+            ++_nonces[_request.user];
+        }
 
         // Pull full amount from user to paymaster
         stkToken.safeTransferFrom(_request.user, address(this), _request.stkTokenAmount);
