@@ -44,6 +44,6 @@ recursive_deps = true
 
 [dependencies]
 forge-std = "1.11.0"
-kam = { version = "1.0", git = "https://github.com/turingcapitalgroup/kam.git", rev = "cb8fda40dd500b98d33e1499da8f24501783575f" }
+kam = { version = "1.0", git = "https://github.com/turingcapitalgroup/kam.git", rev = "78ea3deb116775665efa1efdba2054ddca80813f" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
