@@ -468,7 +468,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userStkBalanceBefore = dnVault.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedShares(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.StakedShares);
 
         assertGt(dnVault.balanceOf(user), userStkBalanceBefore);
         assertFalse(paymaster.canAutoclaim(requestId));
@@ -524,7 +524,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userKTokenBalanceBefore = kUSD.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimUnstakedAssets(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.UnstakedAssets);
 
         assertGt(kUSD.balanceOf(user), userKTokenBalanceBefore);
         assertFalse(paymaster.canAutoclaim(requestId));
@@ -535,7 +535,7 @@ contract kPaymasterTest is DeploymentBaseTest {
 
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_AutoclaimNotRegistered.selector);
-        paymaster.executeAutoclaimStakedShares(fakeRequestId);
+        paymaster.executeAutoclaim(fakeRequestId, IkPaymaster.AutoclaimType.StakedShares);
     }
 
     function test_revert_autoclaimAlreadyExecuted() public {
@@ -545,11 +545,11 @@ contract kPaymasterTest is DeploymentBaseTest {
         bytes32 requestId = _stakeWithAutoclaimAndSettle(stakeAmount, fee);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedShares(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.StakedShares);
 
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_AutoclaimAlreadyExecuted.selector);
-        paymaster.executeAutoclaimStakedShares(requestId);
+        paymaster.executeAutoclaim(requestId, IkPaymaster.AutoclaimType.StakedShares);
     }
 
     function test_getAutoclaimAuth() public {
@@ -595,7 +595,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userStkBalanceBefore = dnVault.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedSharesBatch(requestIds);
+        paymaster.executeAutoclaimBatch(requestIds, IkPaymaster.AutoclaimType.StakedShares);
 
         for (uint256 i = 0; i < 3; i++) {
             assertFalse(paymaster.canAutoclaim(requestIds[i]));
@@ -617,7 +617,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         uint256 userKTokenBalanceBefore = kUSD.balanceOf(user);
 
         vm.prank(executor);
-        paymaster.executeAutoclaimUnstakedAssetsBatch(requestIds);
+        paymaster.executeAutoclaimBatch(requestIds, IkPaymaster.AutoclaimType.UnstakedAssets);
 
         for (uint256 i = 0; i < 3; i++) {
             assertFalse(paymaster.canAutoclaim(requestIds[i]));
@@ -637,7 +637,7 @@ contract kPaymasterTest is DeploymentBaseTest {
         requestIds[2] = keccak256("fake2");
 
         vm.prank(executor);
-        paymaster.executeAutoclaimStakedSharesBatch(requestIds);
+        paymaster.executeAutoclaimBatch(requestIds, IkPaymaster.AutoclaimType.StakedShares);
 
         assertFalse(paymaster.canAutoclaim(validRequestId));
     }
@@ -824,5 +824,70 @@ contract kPaymasterTest is DeploymentBaseTest {
         vm.prank(executor);
         vm.expectRevert(IkPaymaster.kPaymaster_InvalidNonce.selector);
         paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, requestSig, fee);
+    }
+
+    /* //////////////////////////////////////////////////////////////
+              ADDED: BOUNDARY + SIGNATURE FORGERY TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Boundary test: amount == fee must revert. The contract uses `<=`, so equality
+    /// case is the strict boundary. Existing test_revert_insufficientAmountForFee covers
+    /// amount < fee; this covers amount == fee.
+    function test_revert_amountEqualsFee() public {
+        uint96 amountAndFee = 100 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
+            address(kUSD), user, address(paymaster), amountAndFee, deadline, kUSD.nonces(user), USER_PRIVATE_KEY
+        );
+
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
+            user: user,
+            nonce: 0,
+            vault: address(dnVault),
+            deadline: uint96(deadline),
+            maxFee: amountAndFee,
+            kTokenAmount: amountAndFee,
+            recipient: user
+        });
+
+        bytes memory requestSig = _createStakeWithAutoclaimRequestSignature(request, USER_PRIVATE_KEY);
+
+        vm.prank(executor);
+        vm.expectRevert(IkPaymaster.kPaymaster_InsufficientAmountForFee.selector);
+        paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, requestSig, amountAndFee);
+    }
+
+    /// @notice Forged signature: signed by a key OTHER than the request's user — must revert
+    /// with kPaymaster_InvalidSignature. Existing test_revert_invalidNonce uses the correct key
+    /// with a wrong nonce; this tests the signature itself (signer mismatch).
+    function test_revert_forgedSignature() public {
+        uint256 ATTACKER_PRIVATE_KEY = 0xBADBADBADBADBADBADBADBADBADBADBADBADBADBADBADBADBADBADBADBADBAD;
+        require(vm.addr(ATTACKER_PRIVATE_KEY) != user, "test setup: attacker key matches user");
+
+        uint96 stakeAmount = 1000 * 1e6;
+        uint96 fee = 10 * 1e6;
+        uint256 deadline = block.timestamp + 1 hours;
+
+        IkPaymaster.PermitSignature memory permit = _createPermitSignature(
+            address(kUSD), user, address(paymaster), stakeAmount, deadline, kUSD.nonces(user), USER_PRIVATE_KEY
+        );
+
+        IkPaymaster.StakeWithAutoclaimRequest memory request = IkPaymaster.StakeWithAutoclaimRequest({
+            user: user,
+            nonce: 0,
+            vault: address(dnVault),
+            deadline: uint96(deadline),
+            maxFee: DEFAULT_MAX_FEE,
+            kTokenAmount: stakeAmount,
+            recipient: user
+        });
+
+        // Sign with attacker's key, not user's
+        bytes memory forgedSig = _createStakeWithAutoclaimRequestSignature(request, ATTACKER_PRIVATE_KEY);
+
+        vm.prank(executor);
+        vm.expectRevert(IkPaymaster.kPaymaster_InvalidSignature.selector);
+        paymaster.executeRequestStakeWithAutoclaimWithPermit(request, permit, forgedSig, fee);
     }
 }
