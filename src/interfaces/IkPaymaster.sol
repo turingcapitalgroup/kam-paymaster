@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.30;
+pragma solidity ^0.8.4;
 
 /// @title IkPaymaster
 /// @notice Interface for the kPaymaster gasless forwarder contract

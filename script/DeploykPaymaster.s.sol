@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.30;
+pragma solidity 0.8.34;
 
 import { kPaymaster } from "../src/kPaymaster.sol";
 import { DeploymentManager } from "./utils/DeploymentManager.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.30;
+pragma solidity 0.8.34;
 
 import { IkPaymaster } from "../src/interfaces/IkPaymaster.sol";
 import { kPaymaster } from "../src/kPaymaster.sol";
@@ -91,7 +91,7 @@ contract kPaymasterIntegrationTest is DeploymentBaseTest {
 
     function _executeBatchSettlement(address vaultAddress, bytes32 batchId, uint256 totalAssets) internal {
         vm.prank(users.relayer);
-        bytes32 proposalId = assetRouter.proposeSettleBatch(tokens.usdc, vaultAddress, batchId, totalAssets, 0, 0);
+        bytes32 proposalId = assetRouter.proposeSettleBatch(tokens.usdc, vaultAddress, batchId, totalAssets);
 
         (bool canExecute,) = assetRouter.canExecuteProposal(proposalId);
         if (!canExecute) {
@@ -99,6 +99,7 @@ contract kPaymasterIntegrationTest is DeploymentBaseTest {
             assetRouter.acceptProposal(proposalId);
         }
 
+        vm.prank(users.relayer);
         assetRouter.executeSettleBatch(proposalId);
     }
 
