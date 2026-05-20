@@ -3,15 +3,13 @@ src = "src"
 out = "out"
 libs = ["dependencies"]
 gas_reports = ['*']
-solc_version = "0.8.30"
+solc_version = "0.8.34"
 optimizer = true
 optimizer_runs = 200
 fs_permissions = [{ access = "read-write", path = "." }]
-via_ir = true
 
 [profile.deploy]
-solc_version = "0.8.30"
-via_ir = true
+solc_version = "0.8.34"
 optimizer = true
 optimizer_runs = 7777
 
@@ -46,6 +44,6 @@ recursive_deps = true
 
 [dependencies]
 forge-std = "1.11.0"
-kam = { version = "1.0", git = "https://github.com/turingcapitalgroup/kam.git" }
+kam = { version = "1.0", git = "https://github.com/turingcapitalgroup/kam.git", rev = "78ea3deb116775665efa1efdba2054ddca80813f" }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

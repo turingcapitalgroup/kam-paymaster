@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.30;
+pragma solidity ^0.8.4;
 
 /// @title IkPaymaster
 /// @notice Interface for the kPaymaster gasless forwarder contract
@@ -8,6 +8,18 @@ pragma solidity 0.8.30;
 /// Users sign a maxFee parameter to cap the fee that can be charged.
 /// Structs are tightly packed for gas optimization.
 interface IkPaymaster {
+    /* //////////////////////////////////////////////////////////////
+                                TYPES
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Discriminator for the four autoclaim flows that previously had separate entry points
+    /// @dev `StakedShares` claims fulfilled stake requests via `claimStakedShares`.
+    ///      `UnstakedAssets` claims fulfilled unstake requests via `claimUnstakedAssets`.
+    enum AutoclaimType {
+        StakedShares,
+        UnstakedAssets
+    }
+
     /* //////////////////////////////////////////////////////////////
                                 EVENTS
     //////////////////////////////////////////////////////////////*/
@@ -31,20 +43,6 @@ interface IkPaymaster {
     event GaslessUnstakeRequested(
         address indexed user, address indexed vault, uint256 stkAmount, uint256 fee, bytes32 requestId
     );
-
-    /// @notice Emitted when a gasless claim of staked shares is executed
-    /// @param user The user claiming shares
-    /// @param vault The vault from which shares are claimed
-    /// @param requestId The stake request ID being claimed
-    /// @param fee The fee deducted in stkTokens
-    event GaslessStakedSharesClaimed(address indexed user, address indexed vault, bytes32 requestId, uint256 fee);
-
-    /// @notice Emitted when a gasless claim of unstaked assets is executed
-    /// @param user The user claiming assets
-    /// @param vault The vault from which assets are claimed
-    /// @param requestId The unstake request ID being claimed
-    /// @param fee The fee deducted in kTokens
-    event GaslessUnstakedAssetsClaimed(address indexed user, address indexed vault, bytes32 requestId, uint256 fee);
 
     /// @notice Emitted when a trusted executor is updated
     /// @param executor The executor address
@@ -70,21 +68,25 @@ interface IkPaymaster {
     /// @param user The user who authorized autoclaim
     /// @param vault The vault address
     /// @param requestId The stake/unstake request ID
-    /// @param isStake True if stake request, false if unstake
-    event AutoclaimRegistered(address indexed user, address indexed vault, bytes32 indexed requestId, bool isStake);
+    /// @param claimType Whether the registration is for a staked-shares or unstaked-assets claim
+    event AutoclaimRegistered(
+        address indexed user, address indexed vault, bytes32 indexed requestId, AutoclaimType claimType
+    );
 
     /// @notice Emitted when autoclaim is executed
     /// @param user The user whose claim was executed
     /// @param vault The vault address
     /// @param requestId The stake/unstake request ID
-    /// @param isStake True if stake claim, false if unstake claim
-    event AutoclaimExecuted(address indexed user, address indexed vault, bytes32 indexed requestId, bool isStake);
+    /// @param claimType Whether the executed claim was for staked shares or unstaked assets
+    event AutoclaimExecuted(
+        address indexed user, address indexed vault, bytes32 indexed requestId, AutoclaimType claimType
+    );
 
     /// @notice Emitted when a batch autoclaim fails for a specific request
     /// @param vault The vault address
     /// @param requestId The stake/unstake request ID that failed
-    /// @param isStake True if stake claim, false if unstake claim
-    event AutoclaimFailed(address indexed vault, bytes32 indexed requestId, bool isStake);
+    /// @param claimType Whether the failed claim was for staked shares or unstaked assets
+    event AutoclaimFailed(address indexed vault, bytes32 indexed requestId, AutoclaimType claimType);
 
     /* //////////////////////////////////////////////////////////////
                                 ERRORS
@@ -126,11 +128,9 @@ interface IkPaymaster {
     /// @notice Thrown when unstake request to vault fails
     error kPaymaster_UnstakeRequestFailed();
 
-    /// @notice Thrown when claim staked shares fails
-    error kPaymaster_ClaimStakedSharesFailed();
-
-    /// @notice Thrown when claim unstaked assets fails
-    error kPaymaster_ClaimUnstakedAssetsFailed();
+    /// @notice Thrown when a single autoclaim fails (validation or downstream call).
+    ///         Batch autoclaim does not revert on per-request failure — it emits `AutoclaimFailed` instead.
+    error kPaymaster_AutoclaimRevert();
 
     /// @notice Thrown when permit call fails
     error kPaymaster_PermitFailed();
@@ -146,6 +146,9 @@ interface IkPaymaster {
 
     /// @notice Thrown when batch size exceeds maximum or is zero
     error kPaymaster_BatchTooLarge();
+
+    /// @notice Thrown when the paymaster is not the vault's trusted forwarder
+    error kPaymaster_NotTrustedForwarder();
 
     /* //////////////////////////////////////////////////////////////
                                 STRUCTS
@@ -349,26 +352,24 @@ interface IkPaymaster {
         returns (bytes32[] memory requestIds);
 
     /// @notice Execute autoclaim for staked shares (no user signature required)
-    /// @dev Can only be called if user used executeRequestStakeWithAutoclaim.
-    ///      Claim fee was already paid upfront during the request.
-    /// @param requestId The stake request ID to claim
-    function executeAutoclaimStakedShares(bytes32 requestId) external;
+    /// @notice Execute a single autoclaim (no user signature required)
+    /// @dev Granular reverts on precondition failure:
+    ///        - `kPaymaster_AutoclaimNotRegistered` — no entry, or entry's `isStake` does not match
+    ///          the requested `claimType`
+    ///        - `kPaymaster_AutoclaimAlreadyExecuted` — entry was already claimed
+    ///        - `kPaymaster_VaultNotRegistered` — vault was deregistered after autoclaim auth
+    ///        - `kPaymaster_AutoclaimRevert` — downstream vault call reverted (auth.executed is
+    ///          rolled back so the request can be retried)
+    /// @param requestId The stake or unstake request ID to claim
+    /// @param claimType `StakedShares` for stake-claim, `UnstakedAssets` for unstake-claim
+    function executeAutoclaim(bytes32 requestId, AutoclaimType claimType) external;
 
-    /// @notice Execute autoclaim for unstaked assets (no user signature required)
-    /// @dev Can only be called if user used executeRequestUnstakeWithAutoclaim.
-    ///      Claim fee was already paid upfront during the request.
-    /// @param requestId The unstake request ID to claim
-    function executeAutoclaimUnstakedAssets(bytes32 requestId) external;
-
-    /// @notice Execute batch autoclaim for staked shares (no user signature required)
-    /// @dev Executes multiple autoclaims in a single transaction. Skips invalid/already executed requests.
-    /// @param requestIds Array of stake request IDs to claim
-    function executeAutoclaimStakedSharesBatch(bytes32[] calldata requestIds) external;
-
-    /// @notice Execute batch autoclaim for unstaked assets (no user signature required)
-    /// @dev Executes multiple autoclaims in a single transaction. Skips invalid/already executed requests.
-    /// @param requestIds Array of unstake request IDs to claim
-    function executeAutoclaimUnstakedAssetsBatch(bytes32[] calldata requestIds) external;
+    /// @notice Execute a batch of autoclaims (no user signature required)
+    /// @dev Skips per-request failures and emits `AutoclaimFailed` for each one. Reverts
+    ///      only on `kPaymaster_BatchTooLarge` (size guard).
+    /// @param requestIds Array of stake or unstake request IDs to claim
+    /// @param claimType `StakedShares` for stake-claim, `UnstakedAssets` for unstake-claim
+    function executeAutoclaimBatch(bytes32[] calldata requestIds, AutoclaimType claimType) external;
 
     /* //////////////////////////////////////////////////////////////
                             VIEW FUNCTIONS
